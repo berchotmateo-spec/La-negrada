@@ -220,6 +220,53 @@ test('volver todos los precios a 0', () => {
   assert.throws(() => s.facturar([{ productoId: cerveza.id, cantidad: 1 }]), /no tiene precio/);
 });
 
+test('reservas: pagada (verde) o paga en efectivo (naranja) y resumen por fecha', () => {
+  const s = globalThis.crearStore(memoria());
+  s.guardarPrecioEntrada(5000);
+  assert.strictEqual(s.config().precioEntrada, 5000);
+  const mateo = s.crearReserva({ nombre: 'Mateo y familia', personas: 5, fecha: '2026-11-08', monto: 25000, pagada: true });
+  const juan = s.crearReserva({ nombre: 'Juan', personas: 2, fecha: '2026-11-08', monto: 10000, pagada: false });
+  s.crearReserva({ nombre: 'Otra fecha', personas: 3, fecha: '2026-11-15', monto: 15000, pagada: false });
+  assert.strictEqual(mateo.estado, 'pagada');
+  assert.strictEqual(mateo.medioPago, 'Transferencia');
+  assert.strictEqual(juan.estado, 'pendiente');
+
+  let r = s.resumenReservas('2026-11-08');
+  assert.strictEqual(r.cantidad, 2);
+  assert.strictEqual(r.personas, 7);
+  assert.strictEqual(r.cobrado, 25000);
+  assert.strictEqual(r.pendiente, 10000);
+
+  s.cobrarReserva(juan.id, 'Efectivo');
+  r = s.resumenReservas('2026-11-08');
+  assert.strictEqual(r.pendiente, 0);
+  assert.strictEqual(r.porPago.Efectivo, 10000);
+  assert.strictEqual(r.porPago.Transferencia, 25000);
+  assert.throws(() => s.cobrarReserva(juan.id), /ya está paga/);
+});
+
+test('reservas: validaciones, edición y borrado', () => {
+  const s = globalThis.crearStore(memoria());
+  assert.throws(() => s.crearReserva({ nombre: '', personas: 2, fecha: '2026-11-08' }), /nombre/);
+  assert.throws(() => s.crearReserva({ nombre: 'A', personas: 0, fecha: '2026-11-08' }), /al menos 1/);
+  const r = s.crearReserva({ nombre: 'Ana', personas: 2, fecha: '2026-11-08', monto: 8000, pagada: false });
+  s.editarReserva(r.id, { nombre: 'Ana López', personas: 3, fecha: '2026-11-08', monto: 12000, pagada: true });
+  assert.strictEqual(s.reservas()[0].personas, 3);
+  assert.strictEqual(s.reservas()[0].estado, 'pagada');
+  s.eliminarReserva(r.id);
+  assert.strictEqual(s.reservas().length, 0);
+});
+
+test('al cerrar la peña queda guardado el stock que sobró', () => {
+  const { s, cerveza } = storeConProductos();
+  const pena = s.abrirEvento({ nombre: 'Peña', fecha: '2026-11-08' });
+  s.facturar([{ productoId: cerveza.id, cantidad: 4 }]);
+  s.cerrarEvento(pena.id);
+  s.ingresarStock(cerveza.id, 20);
+  const foto = s.eventos()[0].stockAlCerrar.find((x) => x.nombre === 'Cerveza');
+  assert.strictEqual(foto.stock, 6);
+});
+
 test('no permite códigos repetidos', () => {
   const { s } = storeConProductos();
   assert.throws(() => s.crearProducto({ codigo: 'cer1', nombre: 'Otra', precio: 1 }), /Ya existe/);

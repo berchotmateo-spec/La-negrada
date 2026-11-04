@@ -10,6 +10,7 @@ App web para que el dueño del bar maneje solo la caja, el stock y la facturaci�
 | **Inicio** | Caja de la noche por medio de pago, lo que más salió, ventas del mes, productos para reponer y últimas ventas. |
 | **Vender** | Punto de venta con la carta separada en Comidas, Postres y Bebidas. Tocás los productos, armás el ticket, aplicás descuento, elegís medio de pago y facturás. |
 | **Peñas** | Historial de cada peña: efectivo, transferencia, total y comparación con la peña anterior. |
+| **Reservas** | Reservas de entradas por peña: nombre, personas y monto. Verde = ya pagó, naranja = paga en efectivo en la puerta. |
 | **Productos** | Alta, edición y baja de productos con código, categoría, precio, costo y stock mínimo. |
 | **Stock** | Ingreso de mercadería y ajustes por conteo. Historial de todos los movimientos (ventas, ingresos, ajustes, anulaciones). |
 | **Facturas** | Historial con búsqueda y filtro por fechas. Ver, imprimir o anular (al anular, el stock vuelve). |
@@ -52,6 +53,20 @@ Cómo se vende cada cosa:
 
 Si se cierra una peña sin querer, se puede **Reabrir** desde su detalle. También se le puede cambiar el nombre o la fecha.
 Si se vende sin ninguna peña abierta, la venta se cobra igual pero no suma en ninguna peña (la caja avisa).
+
+Al cerrar la peña también queda guardado **el stock que sobró**, al lado del que sobró en la peña anterior,
+para llevar el control de stock entre patios.
+
+### Reservas de entradas
+
+1. En **Reservas** se carga una vez el **precio de la entrada**.
+2. **Nueva reserva:** nombre (por ejemplo "Mateo y familia"), cantidad de personas (Mateo + 4 = 5),
+   fecha de la peña, teléfono y nota opcionales. El monto se calcula solo (5 × precio) y se puede cambiar.
+3. Se marca si **ya pagó** (transferencia, en **verde**) o si **paga en efectivo** en la puerta (en **naranja**).
+4. Cuando llega y paga, **Cobrar en efectivo** la pasa a verde.
+5. Arriba se ve cuánto ya entró, cuánto falta cobrar y cuántas personas vienen.
+6. En el cierre de la peña aparecen las entradas (transferencia, efectivo y lo que faltó cobrar)
+   y el total de la peña: bar + entradas cobradas.
 
 ### Precios
 

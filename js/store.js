@@ -22,12 +22,14 @@
         direccion: '',
         telefono: '',
         puntoVenta: 1,
-        proximoNumero: 1
+        proximoNumero: 1,
+        precioEntrada: 0
       },
       productos: [],
       movimientos: [],
       facturas: [],
-      eventos: []
+      eventos: [],
+      reservas: []
     };
   }
 
@@ -79,7 +81,8 @@
         productos: Array.isArray(d.productos) ? d.productos : [],
         movimientos: Array.isArray(d.movimientos) ? d.movimientos : [],
         facturas: Array.isArray(d.facturas) ? d.facturas : [],
-        eventos: Array.isArray(d.eventos) ? d.eventos : []
+        eventos: Array.isArray(d.eventos) ? d.eventos : [],
+        reservas: Array.isArray(d.reservas) ? d.reservas : []
       };
     }
 
@@ -166,6 +169,31 @@
         });
       });
       return r;
+    }
+
+    function buscarReserva(d, id) {
+      var r = d.reservas.find(function (x) { return x.id === id; });
+      if (!r) throw new Error('Reserva no encontrada.');
+      return r;
+    }
+
+    function validarReserva(entrada) {
+      var nombre = String(entrada.nombre || '').trim();
+      if (!nombre) throw new Error('La reserva necesita un nombre.');
+      var personas = aEntero(entrada.personas, 'Personas');
+      if (personas < 1) throw new Error('La reserva tiene que ser de al menos 1 persona.');
+      var fecha = String(entrada.fecha || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error('Elegí la fecha de la peña.');
+      var monto = entrada.monto === '' || entrada.monto == null ? 0 : aNumero(entrada.monto, 'Monto');
+      if (monto < 0) throw new Error('El monto no puede ser negativo.');
+      return {
+        nombre: nombre,
+        personas: personas,
+        fecha: fecha,
+        monto: redondear(monto),
+        telefono: String(entrada.telefono || '').trim(),
+        nota: String(entrada.nota || '').trim()
+      };
     }
 
     var api = {
@@ -458,6 +486,10 @@
           if (!e.abierto) throw new Error('Esa peña ya está cerrada.');
           e.abierto = false;
           e.cierre = new Date().toISOString();
+          // Foto del stock al cerrar, para comparar entre peñas
+          e.stockAlCerrar = d.productos.filter(function (p) { return p.activo !== false; }).map(function (p) {
+            return { nombre: p.nombre, stock: p.stock, unidad: p.unidad || 'unidad' };
+          });
           return e;
         });
       },
@@ -502,6 +534,80 @@
 
       resumenEvento: function (id) {
         return resumirFacturas(datos.facturas.filter(function (f) { return f.eventoId === id; }));
+      },
+
+      // ---------- Reservas de entradas ----------
+      /*
+       * entrada: { nombre, personas, fecha 'AAAA-MM-DD', monto, pagada (bool), telefono, nota }
+       * pagada = true  -> ya pagó por transferencia (verde)
+       * pagada = false -> paga en efectivo en la puerta (naranja)
+       */
+      reservas: function () { return datos.reservas; },
+
+      crearReserva: function (entrada) {
+        return transaccion(function (d) {
+          var r = Object.assign({ id: nuevoId(), creada: new Date().toISOString() }, validarReserva(entrada));
+          r.estado = entrada.pagada ? 'pagada' : 'pendiente';
+          r.medioPago = entrada.pagada ? 'Transferencia' : null;
+          d.reservas.push(r);
+          return r;
+        });
+      },
+
+      editarReserva: function (id, entrada) {
+        return transaccion(function (d) {
+          var r = buscarReserva(d, id);
+          Object.assign(r, validarReserva(entrada));
+          if (entrada.pagada === true && r.estado !== 'pagada') { r.estado = 'pagada'; r.medioPago = 'Transferencia'; }
+          if (entrada.pagada === false) { r.estado = 'pendiente'; r.medioPago = null; }
+          return r;
+        });
+      },
+
+      // Cuando llegan y pagan en la puerta
+      cobrarReserva: function (id, medioPago) {
+        return transaccion(function (d) {
+          var r = buscarReserva(d, id);
+          if (r.estado === 'pagada') throw new Error('Esa reserva ya está paga.');
+          r.estado = 'pagada';
+          r.medioPago = medioPago || 'Efectivo';
+          r.pagadaEn = new Date().toISOString();
+          return r;
+        });
+      },
+
+      eliminarReserva: function (id) {
+        return transaccion(function (d) {
+          buscarReserva(d, id);
+          d.reservas = d.reservas.filter(function (r) { return r.id !== id; });
+        });
+      },
+
+      resumenReservas: function (fecha) {
+        var r = { lista: [], cantidad: 0, personas: 0, total: 0, cobrado: 0, porPago: {}, pendiente: 0 };
+        datos.reservas.forEach(function (x) {
+          if (x.fecha !== fecha) return;
+          r.lista.push(x);
+          r.cantidad++;
+          r.personas += x.personas;
+          r.total = redondear(r.total + x.monto);
+          if (x.estado === 'pagada') {
+            r.cobrado = redondear(r.cobrado + x.monto);
+            r.porPago[x.medioPago] = redondear((r.porPago[x.medioPago] || 0) + x.monto);
+          } else {
+            r.pendiente = redondear(r.pendiente + x.monto);
+          }
+        });
+        return r;
+      },
+
+      guardarPrecioEntrada: function (valor) {
+        return transaccion(function (d) {
+          var n = aNumero(valor, 'Precio de la entrada');
+          if (n < 0) throw new Error('El precio de la entrada no puede ser negativo.');
+          d.config.precioEntrada = redondear(n);
+          return d.config.precioEntrada;
+        });
       },
 
       // ---------- Precios ----------

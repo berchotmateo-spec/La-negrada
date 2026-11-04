@@ -3,7 +3,7 @@
  * Primero intenta la red (así llegan las actualizaciones) y si no hay conexión usa la copia guardada.
  * Los datos del bar (ventas, stock) no pasan por acá: están en el localStorage del navegador.
  */
-var CACHE = 'la-negrada-v3';
+var CACHE = 'la-negrada-v4';
 var ARCHIVOS = [
   './', './index.html', './css/styles.css', './js/store.js', './js/app.js',
   './img/logo.jpg', './img/favicon.png', './img/icono-192.png', './img/icono-512.png', './manifest.json'

@@ -118,7 +118,7 @@
   });
 
   // ---------- Navegación ----------
-  var vistas = ['inicio', 'vender', 'penas', 'productos', 'stock', 'facturas', 'config'];
+  var vistas = ['inicio', 'vender', 'penas', 'reservas', 'productos', 'stock', 'facturas', 'config'];
   function mostrarVista() {
     var actual = location.hash.replace('#', '');
     if (vistas.indexOf(actual) === -1) actual = 'inicio';
@@ -188,6 +188,13 @@
     $('#caja-noche').innerHTML = '<ul class="lista">' + Object.keys(porPago).map(function (m) {
         return '<li><span>' + esc(m) + '</span><strong>' + plata(porPago[m]) + '</strong></li>';
       }).join('') + '<li class="fila-total"><span>Total</span><strong>' + plata(r.total) + '</strong></li></ul>';
+    var fechaCaja = pena ? pena.fecha : aFechaInput(hoy);
+    var entradas = store.resumenReservas(fechaCaja);
+    if (entradas.cantidad) {
+      $('#caja-noche').innerHTML += '<p class="caja-entradas">Entradas: <strong>' + plata(entradas.cobrado) + '</strong> cobrado' +
+        (entradas.pendiente ? ' · <span class="texto-naranja">' + plata(entradas.pendiente) + ' a cobrar en efectivo</span>' : '') +
+        ' · ' + entradas.personas + ' personas</p>';
+    }
     $('#caja-acciones').innerHTML = pena
       ? '<button type="button" class="btn" data-ver-pena="' + pena.id + '">Ver detalle</button>' +
         '<button type="button" class="btn btn-primario" data-cerrar-pena>Cerrar peña</button>'
@@ -739,11 +746,12 @@
       '<div class="cierre-caja"><span>Efectivo</span><strong>' + plata(r.porPago.Efectivo || 0) + '</strong></div>' +
       '<div class="cierre-caja"><span>Transferencia</span><strong>' + plata(r.porPago.Transferencia || 0) + '</strong></div>' +
       otros.map(function (m) { return '<div class="cierre-caja"><span>' + esc(m) + '</span><strong>' + plata(r.porPago[m]) + '</strong></div>'; }).join('') +
-      '<div class="cierre-caja total"><span>Total facturado</span><strong>' + plata(r.total) + '</strong></div></div>' +
+      '<div class="cierre-caja total"><span>Total del bar</span><strong>' + plata(r.total) + '</strong></div></div>' +
       (ant
         ? '<div class="cierre-comparacion"><span>Contra <strong>' + esc(ant.nombre) + '</strong> (' + plata(ra.total) + '):</span> ' +
           comparacion(r.total, ra.total) + '</div>'
         : '<p class="ayuda">Es la primera peña registrada: la próxima se va a comparar con esta.</p>') +
+      htmlEntradasPena(e, r) +
       '<h3>Lo que se vendió</h3>' +
       (nombres.length
         ? '<table class="tabla comp-tabla"><thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Monto</th>' +
@@ -755,7 +763,38 @@
               (ant ? '<td class="num tenue">' + (y ? cantidadCon(y.cantidad, y.unidad) : '—') + '</td>' : '') + '</tr>';
           }).join('') + '</tbody></table>'
         : vacio('Todavía no hay ventas en esta peña.')) +
+      htmlStockAlCerrar(e, ant) +
       '</div>';
+  }
+
+  function htmlEntradasPena(e, r) {
+    var en = store.resumenReservas(e.fecha);
+    if (!en.cantidad) return '';
+    return '<h3>Entradas (' + en.cantidad + (en.cantidad === 1 ? ' reserva, ' : ' reservas, ') + en.personas + ' personas)</h3>' +
+      '<div class="cierre-cajas">' +
+      '<div class="cierre-caja"><span>Transferencia</span><strong>' + plata(en.porPago.Transferencia || 0) + '</strong></div>' +
+      '<div class="cierre-caja"><span>Efectivo</span><strong>' + plata(en.porPago.Efectivo || 0) + '</strong></div>' +
+      (en.pendiente ? '<div class="cierre-caja naranja"><span>Falta cobrar</span><strong>' + plata(en.pendiente) + '</strong></div>' : '') +
+      '</div>' +
+      '<div class="cierre-comparacion">Total de la peña (bar + entradas cobradas): <strong>' + plata(r.total + en.cobrado) + '</strong></div>';
+  }
+
+  // Stock que quedó al cerrar, al lado del que quedó en la peña anterior
+  function htmlStockAlCerrar(e, ant) {
+    if (!e.stockAlCerrar) return '';
+    var previo = {};
+    if (ant && ant.stockAlCerrar) ant.stockAlCerrar.forEach(function (x) { previo[x.nombre] = x; });
+    var filas = e.stockAlCerrar.filter(function (x) { return x.stock > 0 || previo[x.nombre]; });
+    if (!filas.length) return '';
+    var hayPrevio = ant && ant.stockAlCerrar;
+    return '<h3>Stock que quedó al cerrar</h3>' +
+      '<table class="tabla comp-tabla"><thead><tr><th>Producto</th><th class="num">Quedó</th>' +
+      (hayPrevio ? '<th class="num">Peña anterior</th>' : '') + '</tr></thead><tbody>' +
+      filas.map(function (x) {
+        var y = previo[x.nombre];
+        return '<tr><td>' + esc(x.nombre) + '</td><td class="num">' + cantidadCon(x.stock, x.unidad) + '</td>' +
+          (hayPrevio ? '<td class="num tenue">' + (y ? cantidadCon(y.stock, y.unidad) : '—') + '</td>' : '') + '</tr>';
+      }).join('') + '</tbody></table>';
   }
 
   function verPena(id) {
@@ -839,11 +878,153 @@
             '<td class="num">' + plata(r.porPago.Efectivo || 0) + '</td>' +
             '<td class="num">' + plata(r.porPago.Transferencia || 0) + '</td>' +
             '<td class="num"><strong>' + plata(r.total) + '</strong></td>' +
+            '<td class="num">' + (function () { var en = store.resumenReservas(e.fecha); return en.cantidad ? plata(en.cobrado) + '<span class="sub-unidad">' + en.personas + ' pers.</span>' : '<span class="tenue">—</span>'; })() + '</td>' +
             '<td class="sin-corte">' + comparacion(r.total, ant ? store.resumenEvento(ant.id).total : null) + '</td>' +
             '<td class="acciones"><button class="btn btn-chico" data-ver-pena="' + e.id + '">Ver</button></td></tr>';
         }).join('')
-      : '<tr><td colspan="8">' + vacio('Todavía no hay peñas. Abrí la primera cuando arranque el evento.') + '</td></tr>';
+      : '<tr><td colspan="9">' + vacio('Todavía no hay peñas. Abrí la primera cuando arranque el evento.') + '</td></tr>';
   }
+
+  // ---------- Reservas ----------
+  var fechaReservas = null;
+
+  function fechaReservasActual() {
+    if (!fechaReservas) {
+      var pena = store.eventoAbierto();
+      fechaReservas = pena ? pena.fecha : aFechaInput(jornada(new Date()));
+    }
+    return fechaReservas;
+  }
+
+  function renderReservas() {
+    var fecha = fechaReservasActual();
+    if (document.activeElement !== $('#rv-fecha')) $('#rv-fecha').value = fecha;
+    if (document.activeElement !== $('#rv-precio')) $('#rv-precio').value = store.config().precioEntrada || '';
+
+    // Fechas desde hoy que tienen reservas, para saltar rápido
+    var hoyTexto = aFechaInput(jornada(new Date()));
+    var conteo = {};
+    store.reservas().forEach(function (r) { if (r.fecha >= hoyTexto) conteo[r.fecha] = (conteo[r.fecha] || 0) + 1; });
+    var fechas = Object.keys(conteo).sort();
+    $('#rv-fechas').innerHTML = fechas.map(function (f) {
+      return '<button type="button" class="chip' + (f === fecha ? ' activo' : '') + '" data-rv-fecha="' + f + '">' +
+        esc(fechaCorta(f)) + ' · ' + conteo[f] + '</button>';
+    }).join('');
+
+    var r = store.resumenReservas(fecha);
+    $('#rv-cant').textContent = r.cantidad;
+    $('#rv-personas').textContent = r.personas + (r.personas === 1 ? ' persona' : ' personas');
+    $('#rv-cobrado').textContent = plata(r.cobrado);
+    $('#rv-cobrado-sub').textContent = 'Transf. ' + plata(r.porPago.Transferencia || 0) + ' · Efvo. ' + plata(r.porPago.Efectivo || 0);
+    $('#rv-pendiente').textContent = plata(r.pendiente);
+    $('#rv-total').textContent = plata(r.total);
+    $('#rv-total-sub').textContent = fechaLarga(fecha);
+
+    var lista = r.lista.slice().sort(function (a, b) {
+      return (a.estado === b.estado ? 0 : a.estado === 'pendiente' ? -1 : 1) || a.nombre.localeCompare(b.nombre);
+    });
+    $('#rv-lista').innerHTML = lista.length
+      ? '<ul class="reservas">' + lista.map(function (x) {
+          var paga = x.estado === 'pagada';
+          return '<li class="reserva ' + (paga ? 'verde' : 'naranja') + '">' +
+            '<div class="reserva-datos"><strong>' + esc(x.nombre) + '</strong>' +
+            '<span class="tenue">' + x.personas + (x.personas === 1 ? ' persona' : ' personas') +
+            (x.telefono ? ' · ' + esc(x.telefono) : '') + (x.nota ? ' · ' + esc(x.nota) : '') + '</span></div>' +
+            '<div class="reserva-monto"><strong>' + plata(x.monto) + '</strong>' +
+            '<span class="estado-reserva">' + (paga ? 'Pagó · ' + esc(x.medioPago || '') : 'Paga en efectivo') + '</span></div>' +
+            '<div class="reserva-acciones">' +
+            (paga ? '' : '<button type="button" class="btn btn-chico btn-cobrar" data-rv-cobrar="' + x.id + '">Cobrar en efectivo</button>') +
+            '<button type="button" class="btn btn-chico" data-rv-editar="' + x.id + '">Editar</button></div></li>';
+        }).join('') + '</ul>'
+      : vacio('No hay reservas para esta peña. Tocá "Nueva reserva" para agregar una.');
+  }
+
+  function formularioReserva(x) {
+    var nueva = !x;
+    var precio = store.config().precioEntrada || 0;
+    x = x || { nombre: '', personas: 1, fecha: fechaReservasActual(), monto: precio || '', telefono: '', nota: '', estado: 'pendiente' };
+    var pagada = x.estado === 'pagada';
+    abrirModal(
+      '<form id="form-reserva" class="form">' +
+      '<h2>' + (nueva ? 'Nueva reserva' : 'Editar reserva') + '</h2>' +
+      '<div class="grilla-form">' +
+      '<label>Nombre *<input class="input" name="nombre" required value="' + esc(x.nombre) + '" placeholder="Ej: Mateo y familia"></label>' +
+      '<label>Personas *<input class="input" name="personas" type="number" min="1" step="1" required value="' + esc(x.personas) + '"></label>' +
+      '<label>Peña del<input class="input" name="fecha" type="date" required value="' + esc(x.fecha) + '"></label>' +
+      '<label>Monto de las entradas<input class="input" name="monto" type="number" min="0" step="1" value="' + esc(x.monto) + '"></label>' +
+      '<label>Teléfono<input class="input" name="telefono" value="' + esc(x.telefono) + '"></label>' +
+      '<label>Nota<input class="input" name="nota" value="' + esc(x.nota) + '" placeholder="Ej: mesa cerca del escenario"></label>' +
+      '</div>' +
+      (precio ? '<p class="ayuda" id="rv-calculo"></p>' : '<p class="ayuda">Tip: cargá el precio de la entrada en Reservas y el monto se calcula solo.</p>') +
+      '<p class="etiqueta-campo">¿Ya pagó?</p>' +
+      '<div class="pago">' +
+      '<button type="button" class="pago-btn opcion-verde' + (pagada ? ' activo' : '') + '" data-rv-pagada="1">Ya pagó (transferencia)</button>' +
+      '<button type="button" class="pago-btn opcion-naranja' + (!pagada ? ' activo' : '') + '" data-rv-pagada="0">Paga en efectivo</button>' +
+      '</div>' +
+      '<div class="acciones-modal">' +
+      (nueva ? '' : '<button type="button" class="btn btn-peligro" id="btn-eliminar-reserva">Eliminar</button>') +
+      '<span class="espacio"></span>' +
+      '<button type="button" class="btn" data-cerrar>Cancelar</button>' +
+      '<button type="submit" class="btn btn-primario">Guardar</button></div></form>'
+    );
+    var form = $('#form-reserva');
+    var montoTocado = !nueva;
+    var calcular = function () {
+      var n = parseInt(form.elements.personas.value, 10) || 0;
+      if (precio && $('#rv-calculo')) $('#rv-calculo').textContent = n + ' × ' + plata(precio) + ' = ' + plata(n * precio);
+      if (precio && !montoTocado) form.elements.monto.value = n * precio;
+    };
+    form.elements.monto.addEventListener('input', function () { montoTocado = true; });
+    form.elements.personas.addEventListener('input', calcular);
+    calcular();
+    form.querySelectorAll('[data-rv-pagada]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        pagada = b.dataset.rvPagada === '1';
+        form.querySelectorAll('[data-rv-pagada]').forEach(function (o) { o.classList.toggle('activo', o === b); });
+      });
+    });
+    form.elements.nombre.focus();
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var datos = Object.fromEntries(new FormData(form).entries());
+      datos.pagada = pagada;
+      var ok = intentar(function () {
+        return nueva ? store.crearReserva(datos) : store.editarReserva(x.id, datos);
+      }, nueva ? 'Reserva guardada.' : 'Reserva actualizada.');
+      if (!ok) return;
+      fechaReservas = datos.fecha;
+      cerrarModal();
+      renderReservas();
+    });
+    var eliminar = $('#btn-eliminar-reserva');
+    if (eliminar) {
+      eliminar.addEventListener('click', function () {
+        if (!confirm('¿Eliminar la reserva de "' + x.nombre + '"?')) return;
+        if (intentar(function () { store.eliminarReserva(x.id); return true; }, 'Reserva eliminada.')) cerrarModal();
+      });
+    }
+  }
+
+  $('#rv-fecha').addEventListener('change', function (e) {
+    if (e.target.value) { fechaReservas = e.target.value; renderReservas(); }
+  });
+  $('#rv-precio').addEventListener('change', function (e) {
+    intentar(function () { return store.guardarPrecioEntrada(e.target.value || 0); }, 'Precio de la entrada guardado.');
+  });
+
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var b;
+    if (t.closest('[data-nueva-reserva]')) formularioReserva(null);
+    else if ((b = t.closest('[data-rv-editar]'))) formularioReserva(store.reservas().find(function (x) { return x.id === b.dataset.rvEditar; }));
+    else if ((b = t.closest('[data-rv-fecha]'))) { fechaReservas = b.dataset.rvFecha; renderReservas(); }
+    else if ((b = t.closest('[data-rv-cobrar]'))) {
+      var x = store.reservas().find(function (r) { return r.id === b.dataset.rvCobrar; });
+      if (x && confirm('¿Cobrar ' + plata(x.monto) + ' en efectivo a "' + x.nombre + '"?')) {
+        intentar(function () { return store.cobrarReserva(x.id, 'Efectivo'); }, 'Cobrado. ' + x.nombre + ' quedó en verde.');
+      }
+    }
+  });
 
   function reiniciarPrecios() {
     if (!confirm('¿Poner TODOS los precios en 0?\n\nLos productos quedan sin precio y no se pueden vender hasta cargarlos de nuevo. El stock no cambia.')) return;
@@ -922,6 +1103,7 @@
     renderStock();
     renderFacturas();
     renderPenas();
+    renderReservas();
   }
 
   store.suscribir(renderTodo);

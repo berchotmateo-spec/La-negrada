@@ -19,6 +19,7 @@
       <a href="#inicio" data-vista="inicio">Inicio</a>
       <a href="#vender" data-vista="vender">Vender</a>
       <a href="#penas" data-vista="penas">Peñas</a>
+      <a href="#reservas" data-vista="reservas">Reservas</a>
       <a href="#productos" data-vista="productos">Productos</a>
       <a href="#stock" data-vista="stock">Stock</a>
       <a href="#facturas" data-vista="facturas">Facturas</a>
@@ -177,10 +178,32 @@
         <p class="ayuda">Cada peña guarda lo que se facturó en efectivo y en transferencia, para comparar una con otra.</p>
         <div class="tabla-scroll">
           <table class="tabla">
-            <thead><tr><th>Peña</th><th>Fecha</th><th class="num">Ventas</th><th class="num">Efectivo</th><th class="num">Transferencia</th><th class="num">Total</th><th>Vs. anterior</th><th></th></tr></thead>
+            <thead><tr><th>Peña</th><th>Fecha</th><th class="num">Ventas</th><th class="num">Efectivo</th><th class="num">Transferencia</th><th class="num">Total bar</th><th class="num">Entradas</th><th>Vs. anterior</th><th></th></tr></thead>
             <tbody id="tabla-penas"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <section class="vista" id="vista-reservas">
+      <header class="vista-cabecera">
+        <h1>Reservas</h1>
+        <button type="button" class="btn btn-primario" data-nueva-reserva>Nueva reserva</button>
+      </header>
+      <div class="panel rv-barra">
+        <label>Peña del<input type="date" id="rv-fecha" class="input"></label>
+        <label>Precio de la entrada<input type="number" id="rv-precio" class="input" min="0" step="1" inputmode="numeric" placeholder="$"></label>
+        <div id="rv-fechas" class="chips"></div>
+      </div>
+      <div class="tarjetas-resumen">
+        <div class="tarjeta-dato"><span class="dato-titulo">Reservas</span><strong id="rv-cant">0</strong><span class="dato-sub" id="rv-personas">0 personas</span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo">Ya pagaron</span><strong class="texto-verde" id="rv-cobrado">$ 0</strong><span class="dato-sub" id="rv-cobrado-sub"></span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo">Pagan en efectivo</span><strong class="texto-naranja" id="rv-pendiente">$ 0</strong><span class="dato-sub">falta cobrar en la puerta</span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo">Total entradas</span><strong id="rv-total">$ 0</strong><span class="dato-sub" id="rv-total-sub"></span></div>
+      </div>
+      <div class="panel">
+        <p class="ayuda"><span class="punto verde"></span> Verde: ya pagó &nbsp; <span class="punto naranja"></span> Naranja: paga en efectivo en la puerta</p>
+        <div id="rv-lista"></div>
       </div>
     </section>
 
