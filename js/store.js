@@ -10,6 +10,7 @@
   'use strict';
 
   var STORAGE_KEY = 'la-negrada:datos';
+  var UNIDADES = ['unidad', 'porción', 'vaso', 'botella'];
   var VERSION = 1;
 
   function estadoInicial() {
@@ -131,13 +132,20 @@
       if (costo < 0) throw new Error('El costo no puede ser negativo.');
       var stockMinimo = entrada.stockMinimo === '' || entrada.stockMinimo == null ? 0 : aEntero(entrada.stockMinimo, 'Stock mínimo');
       if (stockMinimo < 0) throw new Error('El stock mínimo no puede ser negativo.');
+      var unidad = UNIDADES.indexOf(entrada.unidad) !== -1 ? entrada.unidad : 'unidad';
+      // rinde: cuántos vasos salen de una botella (solo para lo que se vende por vaso)
+      var rinde = entrada.rinde === '' || entrada.rinde == null ? 0 : aEntero(entrada.rinde, 'Vasos por botella');
+      if (rinde < 0) throw new Error('Los vasos por botella no pueden ser negativos.');
+      if (unidad !== 'vaso') rinde = 0;
       return {
         codigo: codigo,
         nombre: nombre,
         categoria: String(entrada.categoria || '').trim(),
         precio: redondear(precio),
         costo: redondear(costo),
-        stockMinimo: stockMinimo
+        stockMinimo: stockMinimo,
+        unidad: unidad,
+        rinde: rinde
       };
     }
 
@@ -225,7 +233,8 @@
 
       /*
        * Carga rápida: cambia precios y suma stock de varios productos en un solo guardado.
-       * filas: [{ productoId, precio, ingreso }]  (campos vacíos = no cambiar)
+       * filas: [{ productoId, precio, rinde, envases, ingreso }]  (campos vacíos = no cambiar)
+       *   ingreso = unidades que entran; envases = botellas (se multiplican por rinde)
        * Si una fila tiene un error, no se guarda ninguna.
        */
       cargaRapida: function (filas) {
@@ -238,6 +247,22 @@
               var precio = aNumero(f.precio, 'Precio de ' + p.nombre);
               if (precio < 0) throw new Error('El precio de ' + p.nombre + ' no puede ser negativo.');
               if (redondear(precio) !== p.precio) { p.precio = redondear(precio); cambios++; }
+            }
+            if (f.rinde !== '' && f.rinde != null && p.unidad === 'vaso') {
+              var rinde = aEntero(f.rinde, 'Vasos por botella de ' + p.nombre);
+              if (rinde < 0) throw new Error('Los vasos por botella de ' + p.nombre + ' no pueden ser negativos.');
+              if (rinde !== (p.rinde || 0)) { p.rinde = rinde; cambios++; }
+            }
+            // envases: botellas que entran de un producto que se vende por vaso; se pasan a vasos
+            if (f.envases !== '' && f.envases != null) {
+              var bot = aEntero(f.envases, 'Botellas que entran de ' + p.nombre);
+              if (bot < 0) throw new Error('Las botellas de ' + p.nombre + ' no pueden ser negativas.');
+              if (bot > 0) {
+                if (!(p.rinde > 0)) throw new Error('Cargá cuántos vasos rinde una botella de ' + p.nombre + '.');
+                p.stock += bot * p.rinde;
+                registrarMovimiento(d, p, 'ingreso', bot * p.rinde, '', bot + (bot === 1 ? ' botella' : ' botellas') + ' × ' + p.rinde + ' vasos');
+                cambios++;
+              }
             }
             if (f.ingreso !== '' && f.ingreso != null) {
               var cant = aEntero(f.ingreso, 'Stock que entra de ' + p.nombre);
@@ -297,6 +322,7 @@
               productoId: p.id,
               codigo: p.codigo,
               nombre: p.nombre,
+              unidad: p.unidad || 'unidad',
               precioUnitario: p.precio,
               cantidad: cant,
               subtotal: redondear(p.precio * cant)
@@ -361,6 +387,28 @@
           factura.motivoAnulacion = String(motivo || '').trim();
           return factura;
         });
+      },
+
+      /*
+       * Resumen para el cierre: facturas entre desde (incluido) y hasta (excluido).
+       * Devuelve totales por medio de pago y unidades vendidas por producto.
+       */
+      resumen: function (desde, hasta) {
+        var r = { total: 0, porPago: {}, cantidadVentas: 0, anuladas: 0, productos: {} };
+        datos.facturas.forEach(function (f) {
+          var fecha = new Date(f.fecha);
+          if (fecha < desde || fecha >= hasta) return;
+          if (f.estado === 'anulada') { r.anuladas++; return; }
+          r.cantidadVentas++;
+          r.total = redondear(r.total + f.total);
+          r.porPago[f.medioPago] = redondear((r.porPago[f.medioPago] || 0) + f.total);
+          f.items.forEach(function (i) {
+            if (!r.productos[i.nombre]) r.productos[i.nombre] = { cantidad: 0, monto: 0, unidad: i.unidad || 'unidad' };
+            r.productos[i.nombre].cantidad += i.cantidad;
+            r.productos[i.nombre].monto = redondear(r.productos[i.nombre].monto + i.subtotal);
+          });
+        });
+        return r;
       },
 
       numeroFormateado: function (factura) {

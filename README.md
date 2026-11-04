@@ -23,12 +23,23 @@ La primera vez que se abre, la app carga la carta del bar:
 - **Bebidas:** Vino, Cerveza, Fernet, Gancia, Gaseosa, Agua, Limonada
 
 Los productos arrancan **sin precio y sin stock**. Mientras no tengan precio y stock no se pueden vender.
-Cada venta descuenta de a una unidad o porción (una empanada, un vaso de fernet, una porción de guiso).
+
+Cómo se vende cada cosa:
+
+- **Vino:** por botella. El stock se cuenta en botellas.
+- **Cerveza, Fernet, Gancia, Gaseosa, Agua y Limonada:** por vaso. El stock se cuenta en vasos.
+  En "Cargar precios y stock" se pone cuántos vasos rinde una botella (o una jarra, en la limonada)
+  y el stock se carga en botellas: la app lo pasa a vasos. Ejemplo: 3 botellas de fernet × 8 vasos = 24 vasos.
+- **Comidas:** por unidad (choripán, empanada, pastelito) o por porción (guiso, humita, arroz con leche).
 
 ### La noche del bar
 
-Los totales "de la noche" toman la jornada de **6 am a 6 am**: una venta a la 1 de la madrugada
-cuenta para la noche que empezó el día anterior.
+- **El stock se descuenta en el momento**, con cada venta que se cobra.
+- Al cobrar se elige **Efectivo** o **Transferencia** con dos botones grandes.
+- **Inicio → Caja de la noche** muestra en vivo cuánto entró en efectivo y en transferencia.
+- **Cierre de la noche** (botón en Inicio): efectivo, transferencia y total, cantidad de ventas,
+  lo que se vendió de cada producto y el stock que queda. Se puede imprimir y ver noches anteriores.
+- La noche va de **6 am a 6 am**: una venta a la 1 de la madrugada cuenta para la noche que empezó el día anterior.
 
 ### Reglas de stock
 
@@ -48,7 +59,7 @@ Primeros pasos:
    También se abre desde el aviso amarillo de Inicio mientras falten precios.
 2. Cada noche, la misma pantalla (o **Stock → Ingreso de mercadería**) para sumar lo que se preparó o compró
    (por ejemplo: 48 empanadas, 20 chorizos, 30 fernets). Para subir precios por inflación, lo mismo.
-3. A vender desde **Vender**. Al cerrar, mirar **Inicio → Caja de la noche**.
+3. A vender desde **Vender**. Al terminar el evento, **Inicio → Cierre de la noche**.
 4. Si sobró algo o se rompió, **Stock → Ajuste por conteo** con lo que realmente quedó.
 
 ### Instalarla como app en la compu del bar

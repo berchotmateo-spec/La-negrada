@@ -183,7 +183,8 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 .pos-totales { margin: 14px 0; display: flex; flex-direction: column; gap: 8px; }
 .pos-totales > div { display: flex; justify-content: space-between; align-items: center; }
 .pos-totales .total { font-size: 1.4rem; font-weight: 700; padding-top: 8px; border-top: 1px solid var(--borde); }
-.pos-datos { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.pos-datos { margin-bottom: 14px; }
+.pos-datos .input { margin-top: 8px; }
 .acciones-ticket { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
 .acciones-ticket .btn { padding: 14px; }
 
@@ -211,6 +212,31 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 .input-tabla { -moz-appearance: textfield; appearance: textfield; min-width: 70px; }
 .input-tabla::-webkit-outer-spin-button, .input-tabla::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .fila-categoria td { background: #f5f2ec; font-weight: 700; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--tenue); }
+
+/* Medio de pago */
+.etiqueta-campo { margin: 0 0 6px; font-weight: 600; font-size: .9rem; }
+.pago { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.pago-btn {
+  padding: 14px 10px; border-radius: 10px; border: 2px solid var(--borde); background: #fff;
+  font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; color: var(--texto);
+}
+.pago-btn:hover { border-color: var(--texto); }
+.pago-btn.activo { background: var(--marca); border-color: var(--marca); color: #fff; }
+.pos-datos summary { cursor: pointer; color: var(--tenue); font-size: .9rem; padding: 4px 0; }
+.pos-item-unidad { color: var(--tenue); font-size: .78rem; margin-top: -3px; }
+.sub-unidad { display: block; color: var(--tenue); font-size: .78rem; }
+.btn-ancho { width: 100%; margin-top: 12px; }
+
+/* Cierre de la noche */
+.cierre-fecha { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-bottom: 16px; }
+.cierre-fecha .input { width: auto; }
+.cierre h3 { font-size: 1rem; margin: 20px 0 4px; }
+.cierre-cajas { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 4px; }
+.cierre-caja { border: 1px solid var(--borde); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.cierre-caja span { color: var(--tenue); font-size: .85rem; }
+.cierre-caja strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.cierre-caja.total { background: var(--marca); border-color: var(--marca); }
+.cierre-caja.total span, .cierre-caja.total strong { color: #fff; }
 
 /* ---------- Modal ---------- */
 .modal { border: 0; border-radius: 14px; padding: 22px; width: min(640px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
@@ -274,3 +300,8 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
   .impresion { display: block !important; }
   body { background: #fff; }
 }
+
+.campo-rinde[hidden] { display: none; }
+@media print { .cierre-caja.total { background: #fff; border: 2px solid #000; } .cierre-caja.total span, .cierre-caja.total strong { color: #000; } }
+.modal.modal-ancho { width: min(820px, calc(100vw - 32px)); }
+.sin-corte { white-space: nowrap; }

@@ -6,22 +6,23 @@
   var store = window.crearStore(window.localStorage);
   var carrito = []; // [{ productoId, cantidad }]
   var categoriaPOS = ''; // '' = todas
+  var medioPago = 'Efectivo';
 
   // Carta del bar. Arranca sin precio ni stock: se cargan desde Productos y Stock.
   var CARTA = [
-    { nombre: 'Choripán', categoria: 'Comidas' },
-    { nombre: 'Guiso de lentejas', categoria: 'Comidas' },
-    { nombre: 'Humita', categoria: 'Comidas' },
-    { nombre: 'Empanada', categoria: 'Comidas' },
-    { nombre: 'Pastelito', categoria: 'Comidas' },
-    { nombre: 'Arroz con leche', categoria: 'Postres' },
-    { nombre: 'Vino', categoria: 'Bebidas' },
-    { nombre: 'Cerveza', categoria: 'Bebidas' },
-    { nombre: 'Fernet', categoria: 'Bebidas' },
-    { nombre: 'Gancia', categoria: 'Bebidas' },
-    { nombre: 'Gaseosa', categoria: 'Bebidas' },
-    { nombre: 'Agua', categoria: 'Bebidas' },
-    { nombre: 'Limonada', categoria: 'Bebidas' }
+    { nombre: 'Choripán', categoria: 'Comidas', unidad: 'unidad' },
+    { nombre: 'Guiso de lentejas', categoria: 'Comidas', unidad: 'porción' },
+    { nombre: 'Humita', categoria: 'Comidas', unidad: 'porción' },
+    { nombre: 'Empanada', categoria: 'Comidas', unidad: 'unidad' },
+    { nombre: 'Pastelito', categoria: 'Comidas', unidad: 'unidad' },
+    { nombre: 'Arroz con leche', categoria: 'Postres', unidad: 'porción' },
+    { nombre: 'Vino', categoria: 'Bebidas', unidad: 'botella' },
+    { nombre: 'Cerveza', categoria: 'Bebidas', unidad: 'vaso' },
+    { nombre: 'Fernet', categoria: 'Bebidas', unidad: 'vaso' },
+    { nombre: 'Gancia', categoria: 'Bebidas', unidad: 'vaso' },
+    { nombre: 'Gaseosa', categoria: 'Bebidas', unidad: 'vaso' },
+    { nombre: 'Agua', categoria: 'Bebidas', unidad: 'vaso' },
+    { nombre: 'Limonada', categoria: 'Bebidas', unidad: 'vaso' }
   ];
 
   // Agrega los productos de la carta que no estén cargados. Devuelve cuántos agregó.
@@ -30,13 +31,33 @@
     var nuevos = 0;
     CARTA.forEach(function (item) {
       if (existentes.indexOf(item.nombre.toLowerCase()) !== -1) return;
-      store.crearProducto({ nombre: item.nombre, categoria: item.categoria, precio: 0, stock: 0, stockMinimo: 0 });
+      store.crearProducto({ nombre: item.nombre, categoria: item.categoria, unidad: item.unidad, precio: 0, stock: 0, stockMinimo: 0 });
       nuevos++;
     });
     return nuevos;
   }
 
+  // Productos de la carta creados antes de que existieran las unidades: asignarles la suya.
+  function completarUnidades() {
+    store.productos().forEach(function (p) {
+      if (p.unidad) return;
+      var item = CARTA.find(function (c) { return c.nombre.toLowerCase() === p.nombre.toLowerCase(); });
+      store.editarProducto(p.id, Object.assign({}, p, { unidad: item ? item.unidad : 'unidad' }));
+    });
+  }
+
   if (primeraVez) cargarCarta();
+  completarUnidades();
+
+  var PLURALES = { unidad: '', 'porción': 'porciones', vaso: 'vasos', botella: 'botellas' };
+  // "3 vasos", "1 botella", "5" (para unidades sueltas no hace falta aclarar)
+  function cantidadCon(n, unidad) {
+    if (!unidad || unidad === 'unidad') return String(n);
+    return n + ' ' + (n === 1 ? unidad : PLURALES[unidad]);
+  }
+  function etiquetaUnidad(unidad) {
+    return unidad === 'vaso' ? 'por vaso' : (unidad === 'botella' ? 'por botella' : (unidad === 'porción' ? 'por porción' : ''));
+  }
 
   // ---------- Utilidades ----------
   var $ = function (sel) { return document.querySelector(sel); };
@@ -89,7 +110,8 @@
 
   // ---------- Modal ----------
   var modal = $('#modal');
-  function abrirModal(html) {
+  function abrirModal(html, ancho) {
+    modal.classList.toggle('modal-ancho', !!ancho);
     $('#modal-contenido').innerHTML = html;
     modal.showModal();
   }
@@ -147,14 +169,11 @@
       : '';
 
     // Caja de la noche por medio de pago
-    var porPago = {};
+    var porPago = { Efectivo: 0, Transferencia: 0 };
     deHoy.forEach(function (f) { porPago[f.medioPago] = (porPago[f.medioPago] || 0) + f.total; });
-    var medios = Object.keys(porPago).sort(function (a, b) { return porPago[b] - porPago[a]; });
-    $('#caja-noche').innerHTML = medios.length
-      ? '<ul class="lista">' + medios.map(function (m) {
-          return '<li><span>' + esc(m) + '</span><strong>' + plata(porPago[m]) + '</strong></li>';
-        }).join('') + '<li class="fila-total"><span>Total</span><strong>' + plata(suma(deHoy)) + '</strong></li></ul>'
-      : vacio('Todavía no hubo ventas esta noche.');
+    $('#caja-noche').innerHTML = '<ul class="lista">' + Object.keys(porPago).map(function (m) {
+        return '<li><span>' + esc(m) + '</span><strong>' + plata(porPago[m]) + '</strong></li>';
+      }).join('') + '<li class="fila-total"><span>Total</span><strong>' + plata(suma(deHoy)) + '</strong></li></ul>';
 
     // Lo más vendido de la noche
     var vendidos = {};
@@ -175,7 +194,7 @@
     $('#lista-bajo-stock').innerHTML = bajos.length
       ? '<ul class="lista">' + bajos.map(function (p) {
           return '<li><span>' + esc(p.nombre) + '</span><span class="etiqueta ' + (p.stock === 0 ? 'roja' : 'amarilla') + '">' +
-            (p.stock === 0 ? 'Sin stock' : 'Quedan ' + p.stock) + '</span></li>';
+            (p.stock === 0 ? 'Sin stock' : 'Quedan ' + cantidadCon(p.stock, p.unidad)) + '</span></li>';
         }).join('') + '</ul>'
       : vacio('Todo el stock está bien.');
 
@@ -246,9 +265,10 @@
           var disponible = p.stock - cantidadEnCarrito(p.id);
           var sinPrecio = !(p.precio > 0);
           var bloqueado = sinPrecio || disponible <= 0;
-          var estado = sinPrecio ? 'Sin precio' : (disponible <= 0 ? 'Sin stock' : 'Quedan ' + disponible);
+          var estado = sinPrecio ? 'Sin precio' : (disponible <= 0 ? 'Sin stock' : 'Quedan ' + cantidadCon(disponible, p.unidad));
           return '<button type="button" class="pos-item" data-agregar="' + p.id + '"' + (bloqueado ? ' disabled' : '') + '>' +
             '<span class="pos-item-nombre">' + esc(p.nombre) + '</span>' +
+            (etiquetaUnidad(p.unidad) ? '<span class="pos-item-unidad">' + etiquetaUnidad(p.unidad) + '</span>' : '') +
             '<span class="pos-item-precio">' + (sinPrecio ? '—' : plata(p.precio)) + '</span>' +
             '<span class="pos-item-stock ' + (bloqueado ? 'sin' : '') + '">' + estado + '</span></button>';
         }).join('')
@@ -263,7 +283,10 @@
           var p = store.producto(i.productoId);
           var sub = p.precio * i.cantidad;
           subtotal += sub;
-          return '<li><div class="carrito-nombre">' + esc(p.nombre) + '<span class="tenue">' + plata(p.precio) + ' c/u</span></div>' +
+          var porUnidad = p.unidad && p.unidad !== 'unidad' ? ' el ' + p.unidad : ' c/u';
+          if (p.unidad === 'porción') porUnidad = ' la porción';
+          if (p.unidad === 'botella') porUnidad = ' la botella';
+          return '<li><div class="carrito-nombre">' + esc(p.nombre) + '<span class="tenue">' + plata(p.precio) + porUnidad + '</span></div>' +
             '<div class="carrito-cant"><button type="button" class="btn-cant" data-restar="' + p.id + '" aria-label="Restar">−</button>' +
             '<span>' + i.cantidad + '</span>' +
             '<button type="button" class="btn-cant" data-sumar="' + p.id + '" aria-label="Sumar">+</button></div>' +
@@ -275,6 +298,11 @@
     $('#pos-subtotal').textContent = plata(subtotal);
     $('#pos-total').textContent = plata(subtotal - subtotal * desc / 100);
     $('#pos-facturar').disabled = carrito.length === 0;
+    document.querySelectorAll('[data-pago]').forEach(function (b) {
+      var activo = b.dataset.pago === medioPago;
+      b.classList.toggle('activo', activo);
+      b.setAttribute('aria-pressed', activo);
+    });
   }
 
   $('#pos-buscar').addEventListener('input', renderVender);
@@ -293,6 +321,7 @@
     var b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.categoria !== undefined) { categoriaPOS = b.dataset.categoria; renderVender(); return; }
+    if (b.dataset.pago) { medioPago = b.dataset.pago; renderVender(); return; }
     if (b.dataset.agregar) agregarAlCarrito(b.dataset.agregar);
     if (b.dataset.sumar) agregarAlCarrito(b.dataset.sumar);
     if (b.dataset.restar) {
@@ -311,7 +340,7 @@
     var factura = intentar(function () {
       return store.facturar(carrito, {
         cliente: { nombre: $('#pos-cliente').value, documento: $('#pos-documento').value },
-        medioPago: $('#pos-pago').value,
+        medioPago: medioPago,
         descuento: $('#pos-descuento').value
       });
     });
@@ -320,8 +349,10 @@
     $('#pos-cliente').value = '';
     $('#pos-documento').value = '';
     $('#pos-descuento').value = '0';
+    $('#pos-datos-cliente').open = false;
+    medioPago = 'Efectivo';
     renderVender();
-    aviso('Factura ' + store.numeroFormateado(factura) + ' emitida. Stock actualizado.');
+    aviso('Venta ' + store.numeroFormateado(factura) + ' cobrada en ' + factura.medioPago.toLowerCase() + '. Stock actualizado.');
     verFactura(factura.id);
   });
 
@@ -342,7 +373,7 @@
           var precio = p.precio > 0 ? plata(p.precio) : '<span class="etiqueta amarilla">Sin precio</span>';
           return '<tr><td class="tenue">' + esc(p.codigo || '—') + '</td><td>' + esc(p.nombre) + '</td>' +
             '<td>' + esc(p.categoria || '—') + '</td><td class="num">' + precio + '</td>' +
-            '<td class="num"><span class="etiqueta ' + clase + '">' + p.stock + '</span></td>' +
+            '<td class="num"><span class="etiqueta ' + clase + '">' + cantidadCon(p.stock, p.unidad) + '</span></td>' +
             '<td class="acciones"><button class="btn btn-chico" data-editar="' + p.id + '">Editar</button>' +
             '<button class="btn btn-chico" data-mover="' + p.id + '">Stock</button></td></tr>';
         }).join('')
@@ -351,7 +382,10 @@
 
   function formularioProducto(p) {
     var nuevo = !p;
-    p = p || { codigo: '', nombre: '', categoria: '', precio: '', costo: '', stockMinimo: 0 };
+    p = p || { codigo: '', nombre: '', categoria: '', precio: '', costo: '', stockMinimo: 0, unidad: 'unidad', rinde: '' };
+    var opcionesUnidad = ['unidad', 'porción', 'vaso', 'botella'].map(function (u) {
+      return '<option value="' + u + '"' + ((p.unidad || 'unidad') === u ? ' selected' : '') + '>' + u.charAt(0).toUpperCase() + u.slice(1) + '</option>';
+    }).join('');
     var categorias = Array.from(new Set(store.productos().map(function (x) { return x.categoria; }).filter(Boolean)));
     abrirModal(
       '<form id="form-producto" class="form">' +
@@ -361,18 +395,27 @@
       '<label>Código<input class="input" name="codigo" value="' + esc(p.codigo) + '" placeholder="SKU o código de barras"></label>' +
       '<label>Categoría<input class="input" name="categoria" list="lista-categorias" value="' + esc(p.categoria) + '"></label>' +
       '<datalist id="lista-categorias">' + categorias.map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>' +
+      '<label>Se vende por<select class="input" name="unidad">' + opcionesUnidad + '</select></label>' +
+      '<label class="campo-rinde">Vasos por botella<input class="input" name="rinde" type="number" min="0" step="1" value="' + esc(p.rinde || '') + '" placeholder="Ej: 8"></label>' +
       '<label>Precio de venta *<input class="input" name="precio" type="number" min="0" step="0.01" required value="' + esc(p.precio) + '"></label>' +
       '<label>Costo<input class="input" name="costo" type="number" min="0" step="0.01" value="' + esc(p.costo) + '"></label>' +
       '<label>Stock mínimo<input class="input" name="stockMinimo" type="number" min="0" step="1" value="' + esc(p.stockMinimo) + '"></label>' +
       (nuevo ? '<label>Stock inicial<input class="input" name="stock" type="number" min="0" step="1" value="0"></label>' : '') +
       '</div>' +
-      (nuevo ? '' : '<p class="ayuda">Stock actual: <strong>' + p.stock + '</strong>. Para cambiarlo usá la sección Stock.</p>') +
+      (nuevo ? '' : '<p class="ayuda">Stock actual: <strong>' + cantidadCon(p.stock, p.unidad) + '</strong>. Para cambiarlo usá Cargar precios y stock o la sección Stock.</p>') +
       '<div class="acciones-modal">' +
       (nuevo ? '' : '<button type="button" class="btn btn-peligro" id="btn-eliminar-producto">Eliminar</button>') +
       '<span class="espacio"></span>' +
       '<button type="button" class="btn" data-cerrar>Cancelar</button>' +
       '<button type="submit" class="btn btn-primario">Guardar</button></div></form>'
     );
+
+    var formProd = $('#form-producto');
+    var mostrarRinde = function () {
+      formProd.querySelector('.campo-rinde').hidden = formProd.elements.unidad.value !== 'vaso';
+    };
+    formProd.elements.unidad.addEventListener('change', mostrarRinde);
+    mostrarRinde();
 
     $('#form-producto').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -406,27 +449,37 @@
       var titulo = '';
       if (p.categoria !== categoriaAnterior) {
         categoriaAnterior = p.categoria;
-        titulo = '<tr class="fila-categoria"><td colspan="4">' + esc(p.categoria || 'Sin categoría') + '</td></tr>';
+        titulo = '<tr class="fila-categoria"><td colspan="5">' + esc(p.categoria || 'Sin categoría') + '</td></tr>';
       }
-      return titulo + '<tr data-id="' + p.id + '"><td>' + esc(p.nombre) + '</td>' +
+      var porVaso = p.unidad === 'vaso';
+      return titulo + '<tr data-id="' + p.id + '"' + (porVaso ? ' data-vaso' : '') + '>' +
+        '<td>' + esc(p.nombre) + (etiquetaUnidad(p.unidad) ? '<span class="sub-unidad">' + etiquetaUnidad(p.unidad) + '</span>' : '') + '</td>' +
         '<td><input class="input input-tabla" name="precio" type="number" min="0" step="0.01" inputmode="decimal"' +
         ' value="' + (p.precio > 0 ? p.precio : '') + '" placeholder="$" aria-label="Precio de ' + esc(p.nombre) + '"></td>' +
-        '<td class="num tenue">' + p.stock + '</td>' +
-        '<td><input class="input input-tabla" name="ingreso" type="number" min="0" step="1" inputmode="numeric"' +
-        ' placeholder="0" aria-label="Stock que entra de ' + esc(p.nombre) + '"></td></tr>';
+        '<td>' + (porVaso
+          ? '<input class="input input-tabla" name="rinde" type="number" min="0" step="1" inputmode="numeric" value="' + (p.rinde > 0 ? p.rinde : '') +
+            '" placeholder="ej: 8" aria-label="Vasos por botella de ' + esc(p.nombre) + '">'
+          : '<span class="tenue">—</span>') + '</td>' +
+        '<td class="num tenue sin-corte">' + cantidadCon(p.stock, p.unidad) + '</td>' +
+        '<td><input class="input input-tabla" name="entra" type="number" min="0" step="1" inputmode="numeric"' +
+        ' placeholder="' + (porVaso ? (p.rinde > 0 ? 'botellas' : 'vasos') : (p.unidad === 'botella' ? 'botellas' : '0')) + '"' +
+        ' aria-label="Cuánto entra de ' + esc(p.nombre) + '"></td></tr>';
     }).join('');
 
     abrirModal(
       '<form id="form-carga-rapida" class="form">' +
       '<h2>Cargar precios y stock</h2>' +
-      '<p class="ayuda">Escribí el precio de cada producto y, si querés, cuánto stock entra. ' +
-      'Lo que dejes vacío no se cambia. Con Enter pasás al siguiente casillero.</p>' +
+      '<p class="ayuda">Escribí el precio de cada producto y cuánto stock entra. Lo que dejes vacío no se cambia. ' +
+      'Con Enter pasás al siguiente casillero.</p>' +
+      '<p class="ayuda"><strong>Bebidas por vaso:</strong> poné cuántos vasos salen de una botella (o de una jarra, en la limonada) ' +
+      'y cargá el stock en botellas: la app lo pasa sola a vasos.</p>' +
       '<div class="tabla-scroll alto-fijo"><table class="tabla tabla-carga">' +
-      '<thead><tr><th>Producto</th><th>Precio</th><th class="num">Hay</th><th>Entra</th></tr></thead>' +
+      '<thead><tr><th>Producto</th><th>Precio</th><th>Vasos x bot.</th><th class="num">Hay</th><th>Entra</th></tr></thead>' +
       '<tbody>' + filas + '</tbody></table></div>' +
       '<div class="acciones-modal"><span class="espacio"></span>' +
       '<button type="button" class="btn" data-cerrar>Cancelar</button>' +
-      '<button type="submit" class="btn btn-primario">Guardar todo</button></div></form>'
+      '<button type="submit" class="btn btn-primario">Guardar todo</button></div></form>',
+      true
     );
 
     var form = $('#form-carga-rapida');
@@ -440,13 +493,27 @@
     });
     inputs[0].focus();
 
+    // En bebidas por vaso: si hay rinde, lo que entra se carga en botellas; si no, en vasos.
+    form.querySelectorAll('[name=rinde]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entra = input.closest('tr').querySelector('[name=entra]');
+        entra.placeholder = parseInt(input.value, 10) > 0 ? 'botellas' : 'vasos';
+      });
+    });
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var datos = Array.from(form.querySelectorAll('tr[data-id]')).map(function (tr) {
+        var entra = tr.querySelector('[name=entra]').value.trim();
+        var rindeInput = tr.querySelector('[name=rinde]');
+        var rinde = rindeInput ? rindeInput.value.trim() : '';
+        var enBotellas = tr.hasAttribute('data-vaso') && parseInt(rinde, 10) > 0;
         return {
           productoId: tr.dataset.id,
           precio: tr.querySelector('[name=precio]').value.trim(),
-          ingreso: tr.querySelector('[name=ingreso]').value.trim()
+          rinde: rinde,
+          envases: enBotellas ? entra : '',
+          ingreso: enBotellas ? '' : entra
         };
       });
       var cambios = intentar(function () { return store.cargaRapida(datos); });
@@ -501,7 +568,10 @@
     var p = store.producto($('#stock-producto').value);
     var tipo = $('#stock-tipo').value;
     $('#stock-cantidad-label').textContent = tipo === 'ingreso' ? 'Cantidad que ingresa' : 'Stock real contado';
-    $('#stock-actual').textContent = p ? 'Stock actual de ' + p.nombre + ': ' + p.stock : '';
+    $('#stock-actual').textContent = p
+      ? 'Stock actual de ' + p.nombre + ': ' + cantidadCon(p.stock, p.unidad) +
+        (p.unidad === 'vaso' ? '. Acá la cantidad va en vasos (en botellas, usá Cargar precios y stock).' : '')
+      : '';
   }
 
   $('#stock-producto').addEventListener('change', actualizarAyudaStock);
@@ -561,7 +631,7 @@
       '<p><strong>Cliente:</strong> ' + esc(f.cliente.nombre) + (f.cliente.documento ? ' · ' + esc(f.cliente.documento) : '') + '</p>' +
       '<table class="tabla comp-tabla"><thead><tr><th>Cant.</th><th>Producto</th><th class="num">P. unit.</th><th class="num">Subtotal</th></tr></thead><tbody>' +
       f.items.map(function (i) {
-        return '<tr><td>' + i.cantidad + '</td><td>' + esc(i.nombre) + '</td><td class="num">' + plata(i.precioUnitario) + '</td><td class="num">' + plata(i.subtotal) + '</td></tr>';
+        return '<tr><td>' + cantidadCon(i.cantidad, i.unidad) + '</td><td>' + esc(i.nombre) + '</td><td class="num">' + plata(i.precioUnitario) + '</td><td class="num">' + plata(i.subtotal) + '</td></tr>';
       }).join('') + '</tbody></table>' +
       '<div class="comp-totales">' +
       (f.descuento ? '<p>Subtotal: ' + plata(f.subtotal) + '</p><p>Descuento ' + f.descuentoPorcentaje + '%: −' + plata(f.descuento) + '</p>' : '') +
@@ -593,6 +663,71 @@
       });
     }
   }
+
+  // ---------- Cierre de la noche ----------
+  function aFechaInput(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // fechaTexto: 'AAAA-MM-DD' del día en que empezó la noche. La noche va de las 6 am a las 6 am siguientes.
+  function htmlCierre(fechaTexto) {
+    var desde = new Date(fechaTexto + 'T00:00:00');
+    desde.setHours(HORA_CORTE);
+    var hasta = new Date(desde.getTime());
+    hasta.setDate(hasta.getDate() + 1);
+    var r = store.resumen(desde, hasta);
+    var otros = Object.keys(r.porPago).filter(function (m) { return m !== 'Efectivo' && m !== 'Transferencia'; });
+    var nombres = Object.keys(r.productos).sort(function (a, b) { return r.productos[b].cantidad - r.productos[a].cantidad; });
+    var tituloFecha = desde.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    var conStock = store.productos().filter(function (p) { return p.precio > 0 || p.stock > 0; });
+
+    return '<div class="cierre">' +
+      '<div class="comp-cabecera"><div class="comp-negocio"><img class="comp-logo" src="img/logo.jpg" alt="">' +
+      '<div><h2>Cierre de la noche</h2><p>' + esc(tituloFecha) + '</p></div></div>' +
+      '<div class="comp-numero"><p>' + r.cantidadVentas + (r.cantidadVentas === 1 ? ' venta' : ' ventas') + '</p>' +
+      (r.anuladas ? '<p class="tenue">' + r.anuladas + (r.anuladas === 1 ? ' anulada' : ' anuladas') + ' (no suman)</p>' : '') + '</div></div>' +
+      '<div class="cierre-cajas">' +
+      '<div class="cierre-caja"><span>Efectivo</span><strong>' + plata(r.porPago.Efectivo || 0) + '</strong></div>' +
+      '<div class="cierre-caja"><span>Transferencia</span><strong>' + plata(r.porPago.Transferencia || 0) + '</strong></div>' +
+      otros.map(function (m) { return '<div class="cierre-caja"><span>' + esc(m) + '</span><strong>' + plata(r.porPago[m]) + '</strong></div>'; }).join('') +
+      '<div class="cierre-caja total"><span>Total</span><strong>' + plata(r.total) + '</strong></div></div>' +
+      '<h3>Lo que se vendió</h3>' +
+      (nombres.length
+        ? '<table class="tabla comp-tabla"><thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Monto</th></tr></thead><tbody>' +
+          nombres.map(function (n) {
+            var x = r.productos[n];
+            return '<tr><td>' + esc(n) + '</td><td class="num">' + cantidadCon(x.cantidad, x.unidad) + '</td><td class="num">' + plata(x.monto) + '</td></tr>';
+          }).join('') + '</tbody></table>'
+        : vacio('No hubo ventas esa noche.')) +
+      '<h3>Stock que queda ahora</h3>' +
+      (conStock.length
+        ? '<table class="tabla comp-tabla"><tbody>' + conStock.map(function (p) {
+            return '<tr><td>' + esc(p.nombre) + '</td><td class="num">' + cantidadCon(p.stock, p.unidad) +
+              (p.unidad === 'vaso' && p.rinde > 0 ? ' <span class="tenue">(≈ ' + (Math.round(p.stock / p.rinde * 10) / 10) + ' bot.)</span>' : '') + '</td></tr>';
+          }).join('') + '</tbody></table>'
+        : vacio('Sin productos cargados.')) +
+      '</div>';
+  }
+
+  function verCierre(fechaTexto) {
+    fechaTexto = fechaTexto || aFechaInput(jornada(new Date()));
+    abrirModal(
+      '<label class="cierre-fecha">Noche del <input type="date" class="input" id="cierre-fecha" value="' + fechaTexto + '"></label>' +
+      htmlCierre(fechaTexto) +
+      '<div class="acciones-modal"><span class="espacio"></span>' +
+      '<button type="button" class="btn" data-cerrar>Cerrar</button>' +
+      '<button type="button" class="btn btn-primario" id="btn-imprimir-cierre">Imprimir</button></div>'
+    );
+    $('#cierre-fecha').addEventListener('change', function (e) { if (e.target.value) verCierre(e.target.value); });
+    $('#btn-imprimir-cierre').addEventListener('click', function () {
+      $('#impresion').innerHTML = htmlCierre(fechaTexto);
+      window.print();
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-ver-cierre]')) verCierre();
+  });
 
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-ver-factura]');

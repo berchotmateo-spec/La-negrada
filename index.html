@@ -35,7 +35,10 @@
     <section class="vista" id="vista-inicio">
       <header class="vista-cabecera">
         <h1>Inicio</h1>
-        <a class="btn btn-primario" href="#vender">Nueva venta</a>
+        <div class="botonera">
+          <button type="button" class="btn" data-ver-cierre>Cierre de la noche</button>
+          <a class="btn btn-primario" href="#vender">Nueva venta</a>
+        </div>
       </header>
       <div id="primeros-pasos"></div>
       <div class="tarjetas-resumen">
@@ -47,8 +50,9 @@
       <div class="grilla-2">
         <div class="panel">
           <h2>Caja de la noche</h2>
-          <p class="ayuda">La jornada va de las 6 am a las 6 am del día siguiente.</p>
+          <p class="ayuda">Se actualiza con cada venta. La noche va de las 6 am a las 6 am del día siguiente.</p>
           <div id="caja-noche"></div>
+          <button type="button" class="btn btn-primario btn-ancho" data-ver-cierre>Ver cierre completo</button>
         </div>
         <div class="panel">
           <h2>Lo que más salió esta noche</h2>
@@ -85,20 +89,19 @@
             </div>
             <div class="total"><span>Total</span><span id="pos-total">$ 0</span></div>
           </div>
-          <div class="pos-datos">
-            <input type="text" id="pos-cliente" class="input" placeholder="Cliente (opcional)">
-            <input type="text" id="pos-documento" class="input" placeholder="DNI / CUIT (opcional)">
-            <select id="pos-pago" class="input">
-              <option>Efectivo</option>
-              <option>Débito</option>
-              <option>Crédito</option>
-              <option>Transferencia</option>
-              <option>Mercado Pago</option>
-            </select>
+          <p class="etiqueta-campo">¿Cómo paga?</p>
+          <div class="pago" role="group" aria-label="Medio de pago">
+            <button type="button" class="pago-btn activo" data-pago="Efectivo" aria-pressed="true">Efectivo</button>
+            <button type="button" class="pago-btn" data-pago="Transferencia" aria-pressed="false">Transferencia</button>
           </div>
+          <details class="pos-datos" id="pos-datos-cliente">
+            <summary>Agregar nombre del cliente (opcional)</summary>
+            <input type="text" id="pos-cliente" class="input" placeholder="Nombre">
+            <input type="text" id="pos-documento" class="input" placeholder="DNI / CUIT">
+          </details>
           <div class="acciones-ticket">
             <button class="btn" id="pos-vaciar" type="button">Vaciar</button>
-            <button class="btn btn-primario" id="pos-facturar" type="button">Facturar</button>
+            <button class="btn btn-primario" id="pos-facturar" type="button">Cobrar y facturar</button>
           </div>
         </div>
       </div>

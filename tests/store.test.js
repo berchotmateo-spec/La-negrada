@@ -125,6 +125,48 @@ test('carga rápida con un error no guarda nada', () => {
   assert.strictEqual(s.producto(a.id).stock, 0);
 });
 
+test('las botellas que entran se pasan a vasos según el rinde', () => {
+  const s = globalThis.crearStore(memoria());
+  const fernet = s.crearProducto({ nombre: 'Fernet', precio: 0, unidad: 'vaso' });
+  s.cargaRapida([{ productoId: fernet.id, precio: '3000', rinde: '8', envases: '3', ingreso: '' }]);
+  assert.strictEqual(s.producto(fernet.id).rinde, 8);
+  assert.strictEqual(s.producto(fernet.id).stock, 24);
+  s.facturar([{ productoId: fernet.id, cantidad: 2 }]);
+  assert.strictEqual(s.producto(fernet.id).stock, 22);
+  assert.strictEqual(s.facturas()[0].items[0].unidad, 'vaso');
+});
+
+test('no deja ingresar botellas sin saber cuántos vasos rinden', () => {
+  const s = globalThis.crearStore(memoria());
+  const gancia = s.crearProducto({ nombre: 'Gancia', precio: 100, unidad: 'vaso' });
+  assert.throws(() => s.cargaRapida([{ productoId: gancia.id, envases: '2' }]), /cuántos vasos rinde/);
+  assert.strictEqual(s.producto(gancia.id).stock, 0);
+});
+
+test('el rinde solo se guarda en productos por vaso', () => {
+  const s = globalThis.crearStore(memoria());
+  const vino = s.crearProducto({ nombre: 'Vino', precio: 100, unidad: 'botella', rinde: 5 });
+  assert.strictEqual(vino.rinde, 0);
+  assert.strictEqual(vino.unidad, 'botella');
+});
+
+test('resumen del cierre separa efectivo y transferencia y no cuenta anuladas', () => {
+  const { s, cerveza, fernet } = storeConProductos();
+  s.facturar([{ productoId: cerveza.id, cantidad: 2 }], { medioPago: 'Efectivo' });
+  s.facturar([{ productoId: fernet.id, cantidad: 1 }], { medioPago: 'Transferencia' });
+  const anulada = s.facturar([{ productoId: cerveza.id, cantidad: 1 }], { medioPago: 'Efectivo' });
+  s.anularFactura(anulada.id);
+  const r = s.resumen(new Date(Date.now() - 3600e3), new Date(Date.now() + 3600e3));
+  assert.strictEqual(r.porPago.Efectivo, 3000);
+  assert.strictEqual(r.porPago.Transferencia, 9000);
+  assert.strictEqual(r.total, 12000);
+  assert.strictEqual(r.cantidadVentas, 2);
+  assert.strictEqual(r.anuladas, 1);
+  assert.strictEqual(r.productos.Cerveza.cantidad, 2);
+  const vacio = s.resumen(new Date(0), new Date(1000));
+  assert.strictEqual(vacio.total, 0);
+});
+
 test('no permite códigos repetidos', () => {
   const { s } = storeConProductos();
   assert.throws(() => s.crearProducto({ codigo: 'cer1', nombre: 'Otra', precio: 1 }), /Ya existe/);
