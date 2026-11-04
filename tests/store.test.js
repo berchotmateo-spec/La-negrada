@@ -267,28 +267,45 @@ test('al cerrar la peña queda guardado el stock que sobró', () => {
   assert.strictEqual(foto.stock, 6);
 });
 
-test('volver a cero borra ventas, peñas y reservas pero deja productos, precios y stock', () => {
+test('volver a cero borra las pruebas pero deja productos, precios y stock', () => {
   const { s, cerveza, fernet } = storeConProductos();
   s.ingresarStock(cerveza.id, 5, 'Compra');           // cerveza: 15
-  const pena = s.abrirEvento({ nombre: 'Prueba', fecha: '2026-11-04' });
-  s.facturar([{ productoId: cerveza.id, cantidad: 3 }]); // 12
+  s.facturar([{ productoId: cerveza.id, cantidad: 3 }]); // venta suelta: 12
+  const abierta = s.abrirEvento({ nombre: 'Prueba', fecha: '2026-11-04' });
   const anulada = s.facturar([{ productoId: fernet.id, cantidad: 1 }]);
   s.anularFactura(anulada.id);                          // fernet vuelve a 2
-  s.cerrarEvento(pena.id);
   s.crearReserva({ nombre: 'Test', personas: 2, fecha: '2026-11-04', monto: 100, pagada: true });
 
   const r = s.volverACero();
-  assert.deepStrictEqual(r, { ventas: 2, penas: 1, reservas: 1 });
+  assert.deepStrictEqual(r, { ventas: 2, penas: 1, reservas: 1, penasGuardadas: 0 });
   assert.strictEqual(s.facturas().length, 0);
   assert.strictEqual(s.eventos().length, 0);
+  assert.strictEqual(s.eventoAbierto(), null);
   assert.strictEqual(s.reservas().length, 0);
-  assert.strictEqual(s.config().proximoNumero, 1);
   assert.strictEqual(s.producto(cerveza.id).stock, 15);  // vuelve lo vendido
   assert.strictEqual(s.producto(fernet.id).stock, 2);    // la anulada no se devuelve dos veces
   assert.strictEqual(s.producto(cerveza.id).precio, 1500);
   assert.ok(s.movimientos().every((m) => m.tipo === 'ingreso'));
-  const f = s.facturar([{ productoId: cerveza.id, cantidad: 1 }]);
-  assert.strictEqual(f.numero, 1);
+  assert.strictEqual(s.facturar([{ productoId: cerveza.id, cantidad: 1 }]).numero, 1);
+  assert.ok(abierta);
+});
+
+test('volver a cero NUNCA borra las peñas cerradas, sus ventas ni sus reservas', () => {
+  const { s, cerveza } = storeConProductos();
+  const real = s.abrirEvento({ nombre: 'Peña real', fecha: '2026-11-08' });
+  s.facturar([{ productoId: cerveza.id, cantidad: 2 }], { medioPago: 'Efectivo' });  // n° 1
+  s.cerrarEvento(real.id);
+  s.crearReserva({ nombre: 'Familia', personas: 5, fecha: '2026-11-08', monto: 25000, pagada: true });
+  s.crearReserva({ nombre: 'Prueba', personas: 1, fecha: '2026-11-15', monto: 5000, pagada: false });
+  s.facturar([{ productoId: cerveza.id, cantidad: 1 }]);  // suelta de prueba, n° 2
+
+  assert.deepStrictEqual(s.previaVolverACero(), { ventas: 1, penas: 0, reservas: 1, penasGuardadas: 1 });
+  s.volverACero();
+  assert.strictEqual(s.eventos().length, 1);
+  assert.strictEqual(s.resumenEvento(real.id).total, 3000);
+  assert.deepStrictEqual(s.reservas().map((r) => r.nombre), ['Familia']);
+  assert.strictEqual(s.producto(cerveza.id).stock, 8);   // solo vuelve la venta suelta
+  assert.strictEqual(s.config().proximoNumero, 2);       // no repite números de facturas guardadas
 });
 
 test('eliminar una peña borra solo sus ventas y devuelve el stock', () => {

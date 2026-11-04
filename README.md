@@ -70,11 +70,13 @@ para llevar el control de stock entre patios.
 
 ### Volver a cero (ventas de prueba)
 
-- **Inicio → abajo de todo → Volver a cero** (también en Ajustes): borra todas las ventas, peñas y reservas,
-  y las facturas vuelven a empezar desde el número 1. **Productos, precios y stock se mantienen**:
-  lo que se vendió de prueba vuelve al stock. Pide confirmación dos veces.
+- **Inicio → abajo de todo → Volver a cero** (también en Ajustes): borra las ventas de prueba
+  (las que no son de una peña cerrada), la peña abierta y las reservas sin peña cerrada.
+  **Las peñas cerradas nunca se borran**, con sus ventas y reservas. Productos, precios y stock se mantienen;
+  lo que se vendió de prueba vuelve al stock. Antes de borrar muestra qué se va a borrar y pide confirmación dos veces.
+- **No hace falta volver a cero entre peñas:** al cerrar una peña queda guardada y la próxima arranca sola en $0.
 - **Eliminar una sola peña:** Peñas → Ver → Eliminar. Borra esa peña y sus ventas (vuelven al stock).
-- **Borrar todo** (Ajustes) deja la app vacía, sin productos.
+- **Borrar todo** (Ajustes) deja la app vacía, incluso sin peñas ni productos. Pide escribir la palabra BORRAR.
 
 ### Precios
 

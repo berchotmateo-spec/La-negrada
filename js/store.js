@@ -571,18 +571,43 @@
       },
 
       /*
-       * Volver a cero: borra todas las ventas, peñas y reservas (por ejemplo, las de prueba)
-       * y la numeración de facturas vuelve a 1. Productos, precios y stock se mantienen;
-       * lo que se había descontado por esas ventas vuelve al stock.
+       * Volver a cero (para limpiar pruebas). NUNCA toca las peñas cerradas: quedan guardadas
+       * con sus ventas y sus reservas. Borra:
+       *   - las ventas que no son de una peña cerrada (sueltas o de la peña abierta)
+       *   - la peña abierta
+       *   - las reservas que no son de la fecha de una peña cerrada
+       * Productos, precios y stock se mantienen; lo vendido en lo borrado vuelve al stock.
+       * La numeración sigue desde la última factura que quedó (o desde 1 si no quedó ninguna).
        */
       volverACero: function () {
         return transaccion(function (d) {
-          var r = { ventas: borrarVentas(d, function () { return true; }), penas: d.eventos.length, reservas: d.reservas.length };
-          d.eventos = [];
-          d.reservas = [];
-          d.config.proximoNumero = 1;
-          return r;
+          var cerradas = {}, fechasCerradas = {};
+          d.eventos.forEach(function (e) {
+            if (!e.abierto) { cerradas[e.id] = true; fechasCerradas[e.fecha] = true; }
+          });
+          var ventas = borrarVentas(d, function (f) { return !cerradas[f.eventoId]; });
+          var penas = d.eventos.filter(function (e) { return e.abierto; }).length;
+          d.eventos = d.eventos.filter(function (e) { return !e.abierto; });
+          var reservasAntes = d.reservas.length;
+          d.reservas = d.reservas.filter(function (r) { return fechasCerradas[r.fecha]; });
+          var ultimo = d.facturas.reduce(function (m, f) { return Math.max(m, f.numero); }, 0);
+          d.config.proximoNumero = ultimo + 1;
+          return { ventas: ventas, penas: penas, reservas: reservasAntes - d.reservas.length, penasGuardadas: d.eventos.length };
         });
+      },
+
+      // Qué borraría Volver a cero, para mostrarlo antes de confirmar
+      previaVolverACero: function () {
+        var cerradas = {}, fechasCerradas = {};
+        datos.eventos.forEach(function (e) {
+          if (!e.abierto) { cerradas[e.id] = true; fechasCerradas[e.fecha] = true; }
+        });
+        return {
+          ventas: datos.facturas.filter(function (f) { return !cerradas[f.eventoId]; }).length,
+          penas: datos.eventos.filter(function (e) { return e.abierto; }).length,
+          reservas: datos.reservas.filter(function (r) { return !fechasCerradas[r.fecha]; }).length,
+          penasGuardadas: Object.keys(cerradas).length
+        };
       },
 
       // ---------- Reservas de entradas ----------

@@ -1034,15 +1034,23 @@
   });
 
   function volverACero() {
-    var ventas = store.facturas().length, penas = store.eventos().length, reservas = store.reservas().length;
-    if (!ventas && !penas && !reservas) { aviso('Ya está todo en cero.'); return; }
-    if (!confirm('¿Volver a cero?\n\nSe borran:\n• ' + ventas + (ventas === 1 ? ' venta' : ' ventas') +
-      '\n• ' + penas + (penas === 1 ? ' peña' : ' peñas') + '\n• ' + reservas + (reservas === 1 ? ' reserva' : ' reservas') +
-      '\n\nSe mantienen los productos, los precios y el stock (lo vendido vuelve al stock).')) return;
-    if (!confirm('Última confirmación: esto no se puede deshacer. ¿Volver a cero?')) return;
+    var p = store.previaVolverACero();
+    var guardadas = p.penasGuardadas
+      ? (p.penasGuardadas === 1
+        ? '\n\nLa peña cerrada queda guardada (no se toca).'
+        : '\n\nLas ' + p.penasGuardadas + ' peñas cerradas quedan guardadas (no se tocan).')
+      : '';
+    if (!p.ventas && !p.penas && !p.reservas) { aviso('No hay nada de prueba para borrar.' + (p.penasGuardadas ? ' Las peñas cerradas quedan guardadas.' : '')); return; }
+    var lista = [];
+    if (p.ventas) lista.push('• ' + p.ventas + (p.ventas === 1 ? ' venta que no es de ninguna peña cerrada' : ' ventas que no son de ninguna peña cerrada'));
+    if (p.penas) lista.push('• la peña que está abierta');
+    if (p.reservas) lista.push('• ' + p.reservas + (p.reservas === 1 ? ' reserva' : ' reservas') + ' sin peña cerrada');
+    if (!confirm('¿Volver a cero?\n\nSe borra:\n' + lista.join('\n') +
+      '\n\nQuedan igual los productos, los precios y el stock (lo vendido vuelve al stock).' + guardadas)) return;
+    if (!confirm('Última confirmación: ¿borrar las ventas de prueba?')) return;
     carrito = [];
     var r = intentar(function () { return store.volverACero(); });
-    if (r) aviso('Listo, todo en cero. Ya podés abrir la peña.');
+    if (r) aviso('Listo, todo en cero.' + (r.penasGuardadas ? ' Las peñas cerradas siguen guardadas.' : ' Ya podés abrir la peña.'));
   }
 
   function reiniciarPrecios() {
@@ -1108,8 +1116,12 @@
   });
 
   $('#btn-borrar').addEventListener('click', function () {
-    if (!confirm('Se van a borrar TODOS los productos, facturas y movimientos. ¿Seguro?')) return;
-    if (!confirm('Última confirmación: esto no se puede deshacer. ¿Borrar todo?')) return;
+    var penas = store.eventos().length;
+    if (!confirm('ATENCIÓN: se borra TODO.\n\nProductos, precios, stock, ventas, reservas' +
+      (penas ? ' y las ' + penas + ' peñas guardadas' : '') + '.\n\nSi solo querés borrar ventas de prueba, usá "Volver a cero".\n\n¿Seguir?')) return;
+    var palabra = prompt('Para confirmar, escribí BORRAR (en mayúsculas):', '');
+    if (palabra === null) return;
+    if (palabra.trim() !== 'BORRAR') { aviso('No se borró nada.', 'error'); return; }
     carrito = [];
     intentar(function () { store.borrarTodo(); return true; }, 'Datos borrados.');
   });
