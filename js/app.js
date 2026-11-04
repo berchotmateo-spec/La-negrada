@@ -102,9 +102,6 @@
   function jornada(fecha) {
     return new Date(fecha.getTime() - HORA_CORTE * 3600 * 1000);
   }
-  function mismoDia(a, b) {
-    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  }
 
   function vacio(texto) { return '<p class="vacio">' + esc(texto) + '</p>'; }
 
@@ -121,7 +118,7 @@
   });
 
   // ---------- Navegación ----------
-  var vistas = ['inicio', 'vender', 'productos', 'stock', 'facturas', 'config'];
+  var vistas = ['inicio', 'vender', 'penas', 'productos', 'stock', 'facturas', 'config'];
   function mostrarVista() {
     var actual = location.hash.replace('#', '');
     if (vistas.indexOf(actual) === -1) actual = 'inicio';
@@ -139,7 +136,6 @@
   function renderInicio() {
     var hoy = jornada(new Date());
     var emitidas = store.facturas().filter(function (f) { return f.estado === 'emitida'; });
-    var deHoy = emitidas.filter(function (f) { return mismoDia(jornada(new Date(f.fecha)), hoy); });
     var delMes = emitidas.filter(function (f) {
       var d = jornada(new Date(f.fecha));
       return d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth();
@@ -148,11 +144,17 @@
     var productos = store.productos();
     var valorStock = productos.reduce(function (s, p) { return s + p.stock * (p.costo || p.precio); }, 0);
     var bajos = store.productosBajoStock();
+    var pena = store.eventoAbierto();
 
-    $('#res-ventas-hoy').textContent = plata(suma(deHoy));
-    $('#res-cant-hoy').textContent = deHoy.length + (deHoy.length === 1 ? ' factura' : ' facturas');
+    // Si hay peña abierta, todo se muestra de la peña; si no, de la noche (6 am a 6 am)
+    var rango = rangoJornada(aFechaInput(hoy));
+    var r = pena ? store.resumenEvento(pena.id) : store.resumen(rango.desde, rango.hasta);
+
+    $('#res-titulo-hoy').textContent = pena ? 'Peña en curso' : 'Ventas de la noche';
+    $('#res-ventas-hoy').textContent = plata(r.total);
+    $('#res-cant-hoy').textContent = pena ? pena.nombre : r.cantidadVentas + (r.cantidadVentas === 1 ? ' venta' : ' ventas');
     $('#res-ventas-mes').textContent = plata(suma(delMes));
-    $('#res-cant-mes').textContent = delMes.length + (delMes.length === 1 ? ' factura' : ' facturas');
+    $('#res-cant-mes').textContent = delMes.length + (delMes.length === 1 ? ' venta' : ' ventas');
     $('#res-productos').textContent = productos.length;
     $('#res-valor-stock').textContent = 'Stock valorizado ' + plata(valorStock);
     $('#res-bajo').textContent = bajos.length;
@@ -168,26 +170,36 @@
         '<button type="button" class="btn btn-primario" data-carga-rapida>Cargar precios</button></div>'
       : '';
 
-    // Caja de la noche por medio de pago
-    var porPago = { Efectivo: 0, Transferencia: 0 };
-    deHoy.forEach(function (f) { porPago[f.medioPago] = (porPago[f.medioPago] || 0) + f.total; });
+    // Botón de la cabecera: abrir o cerrar peña
+    var botonPena = pena
+      ? '<button type="button" class="btn" data-cerrar-pena>Cerrar peña</button>'
+      : '<button type="button" class="btn" data-abrir-pena>Abrir peña</button>';
+    $('#accion-pena').innerHTML = botonPena;
+    $('#accion-pena-2').innerHTML = pena
+      ? '<button type="button" class="btn btn-primario" data-cerrar-pena>Cerrar ' + esc(pena.nombre) + '</button>'
+      : '<button type="button" class="btn btn-primario" data-abrir-pena>Abrir peña</button>';
+
+    // Caja: efectivo y transferencia siempre visibles
+    $('#caja-titulo').textContent = pena ? 'Caja · ' + pena.nombre : 'Caja de la noche';
+    $('#caja-ayuda').textContent = pena
+      ? 'Se actualiza con cada venta. Al terminar, tocá "Cerrar peña" y queda guardada.'
+      : 'No hay ninguna peña abierta. Abrí una para que las ventas queden guardadas y se puedan comparar.';
+    var porPago = Object.assign({ Efectivo: 0, Transferencia: 0 }, r.porPago);
     $('#caja-noche').innerHTML = '<ul class="lista">' + Object.keys(porPago).map(function (m) {
         return '<li><span>' + esc(m) + '</span><strong>' + plata(porPago[m]) + '</strong></li>';
-      }).join('') + '<li class="fila-total"><span>Total</span><strong>' + plata(suma(deHoy)) + '</strong></li></ul>';
+      }).join('') + '<li class="fila-total"><span>Total</span><strong>' + plata(r.total) + '</strong></li></ul>';
+    $('#caja-acciones').innerHTML = pena
+      ? '<button type="button" class="btn" data-ver-pena="' + pena.id + '">Ver detalle</button>' +
+        '<button type="button" class="btn btn-primario" data-cerrar-pena>Cerrar peña</button>'
+      : '<button type="button" class="btn btn-primario" data-abrir-pena>Abrir peña</button>';
 
-    // Lo más vendido de la noche
-    var vendidos = {};
-    deHoy.forEach(function (f) {
-      f.items.forEach(function (i) {
-        if (!vendidos[i.nombre]) vendidos[i.nombre] = { cant: 0, monto: 0 };
-        vendidos[i.nombre].cant += i.cantidad;
-        vendidos[i.nombre].monto += i.subtotal;
-      });
-    });
-    var ranking = Object.keys(vendidos).sort(function (a, b) { return vendidos[b].cant - vendidos[a].cant; }).slice(0, 8);
+    // Lo más vendido
+    $('#mas-vendido-titulo').textContent = pena ? 'Lo que más salió en la peña' : 'Lo que más salió esta noche';
+    var ranking = Object.keys(r.productos).sort(function (a, b) { return r.productos[b].cantidad - r.productos[a].cantidad; }).slice(0, 8);
     $('#mas-vendido').innerHTML = ranking.length
       ? '<ul class="lista">' + ranking.map(function (n) {
-          return '<li><span><strong>' + vendidos[n].cant + '×</strong> ' + esc(n) + '</span><span class="tenue">' + plata(vendidos[n].monto) + '</span></li>';
+          return '<li><span><strong>' + cantidadCon(r.productos[n].cantidad, r.productos[n].unidad) + '</strong> · ' + esc(n) + '</span>' +
+            '<span class="tenue">' + plata(r.productos[n].monto) + '</span></li>';
         }).join('') + '</ul>'
       : vacio('Sin ventas todavía.');
 
@@ -250,6 +262,12 @@
   }
 
   function renderVender() {
+    var pena = store.eventoAbierto();
+    $('#pos-pena').innerHTML = pena
+      ? '<div class="pena-activa">Vendiendo en <strong>' + esc(pena.nombre) + '</strong></div>'
+      : '<div class="banner"><div><strong>No hay ninguna peña abierta</strong>' +
+        '<p>Las ventas se cobran igual, pero no van a quedar guardadas en ninguna peña para comparar.</p></div>' +
+        '<button type="button" class="btn btn-primario" data-abrir-pena>Abrir peña</button></div>';
     var cats = categorias();
     if (categoriaPOS && cats.indexOf(categoriaPOS) === -1) categoriaPOS = '';
     $('#pos-categorias').innerHTML = cats.length > 1
@@ -476,7 +494,9 @@
       '<div class="tabla-scroll alto-fijo"><table class="tabla tabla-carga">' +
       '<thead><tr><th>Producto</th><th>Precio</th><th>Vasos x bot.</th><th class="num">Hay</th><th>Entra</th></tr></thead>' +
       '<tbody>' + filas + '</tbody></table></div>' +
-      '<div class="acciones-modal"><span class="espacio"></span>' +
+      '<div class="acciones-modal">' +
+      '<button type="button" class="btn btn-peligro" data-reiniciar-precios>Poner precios en 0</button>' +
+      '<span class="espacio"></span>' +
       '<button type="button" class="btn" data-cerrar>Cancelar</button>' +
       '<button type="submit" class="btn btn-primario">Guardar todo</button></div></form>',
       true
@@ -664,69 +684,181 @@
     }
   }
 
-  // ---------- Cierre de la noche ----------
+  // ---------- Peñas ----------
   function aFechaInput(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
-
-  // fechaTexto: 'AAAA-MM-DD' del día en que empezó la noche. La noche va de las 6 am a las 6 am siguientes.
-  function htmlCierre(fechaTexto) {
-    var desde = new Date(fechaTexto + 'T00:00:00');
+  // 'AAAA-MM-DD' -> Date local (sin corrimiento por zona horaria)
+  function deFechaInput(texto) { return new Date(texto + 'T00:00:00'); }
+  function fechaLarga(texto) {
+    return deFechaInput(texto).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  function fechaCorta(texto) {
+    return deFechaInput(texto).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function nombreSugerido(texto) {
+    var d = deFechaInput(texto);
+    return 'Peña del ' + d.toLocaleDateString('es-AR', { weekday: 'long' }) + ' ' + d.getDate();
+  }
+  // La noche de una fecha va de las 6 am de ese día a las 6 am del siguiente
+  function rangoJornada(texto) {
+    var desde = deFechaInput(texto);
     desde.setHours(HORA_CORTE);
     var hasta = new Date(desde.getTime());
     hasta.setDate(hasta.getDate() + 1);
-    var r = store.resumen(desde, hasta);
+    return { desde: desde, hasta: hasta };
+  }
+
+  // Diferencia contra la peña anterior: "+$ 12.000 (+15%)"
+  function comparacion(actual, anterior) {
+    if (anterior === null) return '<span class="tenue">Primera peña</span>';
+    var dif = actual - anterior;
+    var pct = anterior > 0 ? Math.round(dif / anterior * 100) : null;
+    var clase = dif > 0 ? 'sube' : (dif < 0 ? 'baja' : 'igual');
+    var signo = dif > 0 ? '+' : (dif < 0 ? '−' : '');
+    return '<span class="comparacion ' + clase + '">' + (dif > 0 ? '▲ ' : dif < 0 ? '▼ ' : '= ') + signo + plata(Math.abs(dif)) +
+      (pct !== null && dif !== 0 ? ' (' + signo + Math.abs(pct) + '%)' : '') + '</span>';
+  }
+
+  function htmlPena(e) {
+    var r = store.resumenEvento(e.id);
+    var ant = store.eventoAnterior(e.id);
+    var ra = ant ? store.resumenEvento(ant.id) : null;
     var otros = Object.keys(r.porPago).filter(function (m) { return m !== 'Efectivo' && m !== 'Transferencia'; });
-    var nombres = Object.keys(r.productos).sort(function (a, b) { return r.productos[b].cantidad - r.productos[a].cantidad; });
-    var tituloFecha = desde.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-    var conStock = store.productos().filter(function (p) { return p.precio > 0 || p.stock > 0; });
+    var nombres = Object.keys(r.productos);
+    if (ra) Object.keys(ra.productos).forEach(function (n) { if (nombres.indexOf(n) === -1) nombres.push(n); });
+    nombres.sort(function (a, b) { return ((r.productos[b] || {}).cantidad || 0) - ((r.productos[a] || {}).cantidad || 0); });
 
     return '<div class="cierre">' +
       '<div class="comp-cabecera"><div class="comp-negocio"><img class="comp-logo" src="img/logo.jpg" alt="">' +
-      '<div><h2>Cierre de la noche</h2><p>' + esc(tituloFecha) + '</p></div></div>' +
+      '<div><h2>' + esc(e.nombre) + '</h2><p>' + esc(fechaLarga(e.fecha)) + '</p>' +
+      '<p class="tenue">' + (e.abierto ? 'En curso' : 'Cerrada') + '</p></div></div>' +
       '<div class="comp-numero"><p>' + r.cantidadVentas + (r.cantidadVentas === 1 ? ' venta' : ' ventas') + '</p>' +
       (r.anuladas ? '<p class="tenue">' + r.anuladas + (r.anuladas === 1 ? ' anulada' : ' anuladas') + ' (no suman)</p>' : '') + '</div></div>' +
       '<div class="cierre-cajas">' +
       '<div class="cierre-caja"><span>Efectivo</span><strong>' + plata(r.porPago.Efectivo || 0) + '</strong></div>' +
       '<div class="cierre-caja"><span>Transferencia</span><strong>' + plata(r.porPago.Transferencia || 0) + '</strong></div>' +
       otros.map(function (m) { return '<div class="cierre-caja"><span>' + esc(m) + '</span><strong>' + plata(r.porPago[m]) + '</strong></div>'; }).join('') +
-      '<div class="cierre-caja total"><span>Total</span><strong>' + plata(r.total) + '</strong></div></div>' +
+      '<div class="cierre-caja total"><span>Total facturado</span><strong>' + plata(r.total) + '</strong></div></div>' +
+      (ant
+        ? '<div class="cierre-comparacion"><span>Contra <strong>' + esc(ant.nombre) + '</strong> (' + plata(ra.total) + '):</span> ' +
+          comparacion(r.total, ra.total) + '</div>'
+        : '<p class="ayuda">Es la primera peña registrada: la próxima se va a comparar con esta.</p>') +
       '<h3>Lo que se vendió</h3>' +
       (nombres.length
-        ? '<table class="tabla comp-tabla"><thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Monto</th></tr></thead><tbody>' +
+        ? '<table class="tabla comp-tabla"><thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Monto</th>' +
+          (ant ? '<th class="num">Peña anterior</th>' : '') + '</tr></thead><tbody>' +
           nombres.map(function (n) {
-            var x = r.productos[n];
-            return '<tr><td>' + esc(n) + '</td><td class="num">' + cantidadCon(x.cantidad, x.unidad) + '</td><td class="num">' + plata(x.monto) + '</td></tr>';
+            var x = r.productos[n] || { cantidad: 0, monto: 0, unidad: (ra.productos[n] || {}).unidad };
+            var y = ra && ra.productos[n];
+            return '<tr><td>' + esc(n) + '</td><td class="num">' + cantidadCon(x.cantidad, x.unidad) + '</td><td class="num">' + plata(x.monto) + '</td>' +
+              (ant ? '<td class="num tenue">' + (y ? cantidadCon(y.cantidad, y.unidad) : '—') + '</td>' : '') + '</tr>';
           }).join('') + '</tbody></table>'
-        : vacio('No hubo ventas esa noche.')) +
-      '<h3>Stock que queda ahora</h3>' +
-      (conStock.length
-        ? '<table class="tabla comp-tabla"><tbody>' + conStock.map(function (p) {
-            return '<tr><td>' + esc(p.nombre) + '</td><td class="num">' + cantidadCon(p.stock, p.unidad) +
-              (p.unidad === 'vaso' && p.rinde > 0 ? ' <span class="tenue">(≈ ' + (Math.round(p.stock / p.rinde * 10) / 10) + ' bot.)</span>' : '') + '</td></tr>';
-          }).join('') + '</tbody></table>'
-        : vacio('Sin productos cargados.')) +
+        : vacio('Todavía no hay ventas en esta peña.')) +
       '</div>';
   }
 
-  function verCierre(fechaTexto) {
-    fechaTexto = fechaTexto || aFechaInput(jornada(new Date()));
+  function verPena(id) {
+    var e = store.eventos().find(function (x) { return x.id === id; });
+    if (!e) return;
+    var hayOtraAbierta = store.eventoAbierto() && store.eventoAbierto().id !== e.id;
     abrirModal(
-      '<label class="cierre-fecha">Noche del <input type="date" class="input" id="cierre-fecha" value="' + fechaTexto + '"></label>' +
-      htmlCierre(fechaTexto) +
-      '<div class="acciones-modal"><span class="espacio"></span>' +
+      htmlPena(e) +
+      '<div class="acciones-modal">' +
+      '<button type="button" class="btn" id="btn-editar-pena">Cambiar nombre o fecha</button>' +
+      (!e.abierto && !hayOtraAbierta ? '<button type="button" class="btn" id="btn-reabrir-pena">Reabrir</button>' : '') +
+      '<span class="espacio"></span>' +
       '<button type="button" class="btn" data-cerrar>Cerrar</button>' +
-      '<button type="button" class="btn btn-primario" id="btn-imprimir-cierre">Imprimir</button></div>'
+      '<button type="button" class="btn btn-primario" id="btn-imprimir-pena">Imprimir</button></div>',
+      true
     );
-    $('#cierre-fecha').addEventListener('change', function (e) { if (e.target.value) verCierre(e.target.value); });
-    $('#btn-imprimir-cierre').addEventListener('click', function () {
-      $('#impresion').innerHTML = htmlCierre(fechaTexto);
+    $('#btn-imprimir-pena').addEventListener('click', function () {
+      $('#impresion').innerHTML = htmlPena(e);
       window.print();
+    });
+    $('#btn-editar-pena').addEventListener('click', function () { formularioPena(e); });
+    var reabrir = $('#btn-reabrir-pena');
+    if (reabrir) {
+      reabrir.addEventListener('click', function () {
+        if (!confirm('¿Reabrir "' + e.nombre + '"? Las ventas nuevas se van a sumar a esta peña.')) return;
+        if (intentar(function () { return store.reabrirEvento(e.id); }, 'Peña reabierta.')) verPena(e.id);
+      });
+    }
+  }
+
+  // Abrir una peña nueva (e = null) o cambiar nombre y fecha de una existente
+  function formularioPena(e) {
+    var nueva = !e;
+    var fecha = e ? e.fecha : aFechaInput(jornada(new Date()));
+    var nombre = e ? e.nombre : nombreSugerido(fecha);
+    abrirModal(
+      '<form id="form-pena" class="form">' +
+      '<h2>' + (nueva ? 'Abrir peña' : 'Cambiar nombre o fecha') + '</h2>' +
+      (nueva ? '<p class="ayuda">Todo lo que se venda desde ahora queda guardado en esta peña hasta que la cierres.</p>' : '') +
+      '<label>Fecha<input class="input" type="date" name="fecha" required value="' + fecha + '"></label>' +
+      '<label>Nombre<input class="input" name="nombre" required value="' + esc(nombre) + '"></label>' +
+      '<div class="acciones-modal"><span class="espacio"></span>' +
+      '<button type="button" class="btn" data-cerrar>Cancelar</button>' +
+      '<button type="submit" class="btn btn-primario">' + (nueva ? 'Abrir peña' : 'Guardar') + '</button></div></form>'
+    );
+    var form = $('#form-pena');
+    var nombreTocado = !nueva;
+    form.elements.nombre.addEventListener('input', function () { nombreTocado = true; });
+    form.elements.fecha.addEventListener('change', function () {
+      if (!nombreTocado && form.elements.fecha.value) form.elements.nombre.value = nombreSugerido(form.elements.fecha.value);
+    });
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var datos = { nombre: form.elements.nombre.value, fecha: form.elements.fecha.value };
+      var r = intentar(function () {
+        return nueva ? store.abrirEvento(datos) : store.editarEvento(e.id, datos);
+      }, nueva ? 'Peña abierta. ¡Buena noche!' : 'Peña actualizada.');
+      if (!r) return;
+      if (nueva) cerrarModal(); else verPena(e.id);
     });
   }
 
+  function cerrarPena() {
+    var pena = store.eventoAbierto();
+    if (!pena) return;
+    var r = store.resumenEvento(pena.id);
+    if (!confirm('¿Cerrar "' + pena.nombre + '"?\n\nEfectivo: ' + plata(r.porPago.Efectivo || 0) +
+      '\nTransferencia: ' + plata(r.porPago.Transferencia || 0) + '\nTotal: ' + plata(r.total))) return;
+    if (intentar(function () { return store.cerrarEvento(pena.id); }, 'Peña cerrada y guardada.')) verPena(pena.id);
+  }
+
+  function renderPenas() {
+    var lista = store.eventosOrdenados().reverse();
+    $('#tabla-penas').innerHTML = lista.length
+      ? lista.map(function (e) {
+          var r = store.resumenEvento(e.id);
+          var ant = store.eventoAnterior(e.id);
+          return '<tr><td><strong>' + esc(e.nombre) + '</strong>' + (e.abierto ? ' <span class="etiqueta verde">En curso</span>' : '') + '</td>' +
+            '<td class="tenue sin-corte">' + esc(fechaCorta(e.fecha)) + '</td>' +
+            '<td class="num">' + r.cantidadVentas + '</td>' +
+            '<td class="num">' + plata(r.porPago.Efectivo || 0) + '</td>' +
+            '<td class="num">' + plata(r.porPago.Transferencia || 0) + '</td>' +
+            '<td class="num"><strong>' + plata(r.total) + '</strong></td>' +
+            '<td class="sin-corte">' + comparacion(r.total, ant ? store.resumenEvento(ant.id).total : null) + '</td>' +
+            '<td class="acciones"><button class="btn btn-chico" data-ver-pena="' + e.id + '">Ver</button></td></tr>';
+        }).join('')
+      : '<tr><td colspan="8">' + vacio('Todavía no hay peñas. Abrí la primera cuando arranque el evento.') + '</td></tr>';
+  }
+
+  function reiniciarPrecios() {
+    if (!confirm('¿Poner TODOS los precios en 0?\n\nLos productos quedan sin precio y no se pueden vender hasta cargarlos de nuevo. El stock no cambia.')) return;
+    var n = intentar(function () { return store.reiniciarPrecios(); });
+    if (n === null) return;
+    aviso(n ? 'Listo: ' + n + (n === 1 ? ' precio quedó' : ' precios quedaron') + ' en 0.' : 'Los precios ya estaban en 0.');
+    cargaRapida();
+  }
+
   document.addEventListener('click', function (e) {
-    if (e.target.closest('[data-ver-cierre]')) verCierre();
+    var t = e.target;
+    if (t.closest('[data-abrir-pena]')) formularioPena(null);
+    else if (t.closest('[data-cerrar-pena]')) cerrarPena();
+    else if (t.closest('[data-ver-pena]')) verPena(t.closest('[data-ver-pena]').dataset.verPena);
+    else if (t.closest('[data-reiniciar-precios]')) reiniciarPrecios();
   });
 
   document.addEventListener('click', function (e) {
@@ -789,6 +921,7 @@
     renderProductos();
     renderStock();
     renderFacturas();
+    renderPenas();
   }
 
   store.suscribir(renderTodo);

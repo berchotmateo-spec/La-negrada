@@ -305,3 +305,20 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 @media print { .cierre-caja.total { background: #fff; border: 2px solid #000; } .cierre-caja.total span, .cierre-caja.total strong { color: #000; } }
 .modal.modal-ancho { width: min(820px, calc(100vw - 32px)); }
 .sin-corte { white-space: nowrap; }
+
+/* Peñas */
+.pena-activa {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px;
+  background: var(--verde-fondo); color: var(--verde); padding: 8px 14px; border-radius: 999px; font-size: .92rem;
+}
+.pena-activa::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); }
+.comparacion { font-weight: 700; font-variant-numeric: tabular-nums; }
+.comparacion.sube { color: var(--verde); }
+.comparacion.baja { color: var(--rojo); }
+.comparacion.igual { color: var(--tenue); }
+.cierre-comparacion { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: #f5f2ec; }
+#caja-acciones { display: flex; gap: 10px; }
+#caja-acciones .btn { flex: 1; }
+@media (max-width: 720px) {
+  .menu a { font-size: .7rem; padding: 10px 0; }
+}

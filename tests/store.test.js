@@ -167,6 +167,59 @@ test('resumen del cierre separa efectivo y transferencia y no cuenta anuladas', 
   assert.strictEqual(vacio.total, 0);
 });
 
+test('las ventas quedan registradas en la peña abierta', () => {
+  const { s, cerveza, fernet } = storeConProductos();
+  s.facturar([{ productoId: cerveza.id, cantidad: 1 }]); // antes de abrir: no cuenta
+  const pena = s.abrirEvento({ nombre: 'Peña del domingo 8', fecha: '2026-11-08' });
+  s.facturar([{ productoId: cerveza.id, cantidad: 2 }], { medioPago: 'Efectivo' });
+  s.facturar([{ productoId: fernet.id, cantidad: 1 }], { medioPago: 'Transferencia' });
+  s.cerrarEvento(pena.id);
+  s.facturar([{ productoId: cerveza.id, cantidad: 1 }]); // después de cerrar: no cuenta
+  const r = s.resumenEvento(pena.id);
+  assert.strictEqual(r.porPago.Efectivo, 3000);
+  assert.strictEqual(r.porPago.Transferencia, 9000);
+  assert.strictEqual(r.total, 12000);
+  assert.strictEqual(r.cantidadVentas, 2);
+  assert.strictEqual(s.eventoAbierto(), null);
+});
+
+test('si se anula una venta de la peña, deja de sumar', () => {
+  const { s, cerveza } = storeConProductos();
+  const pena = s.abrirEvento({ nombre: 'Peña', fecha: '2026-11-08' });
+  const f = s.facturar([{ productoId: cerveza.id, cantidad: 2 }]);
+  s.anularFactura(f.id);
+  assert.strictEqual(s.resumenEvento(pena.id).total, 0);
+  assert.strictEqual(s.resumenEvento(pena.id).anuladas, 1);
+});
+
+test('no deja abrir dos peñas a la vez y permite reabrir', () => {
+  const s = globalThis.crearStore(memoria());
+  const a = s.abrirEvento({ nombre: 'Peña 1', fecha: '2026-11-01' });
+  assert.throws(() => s.abrirEvento({ nombre: 'Peña 2', fecha: '2026-11-08' }), /Ya hay una peña abierta/);
+  s.cerrarEvento(a.id);
+  s.reabrirEvento(a.id);
+  assert.strictEqual(s.eventoAbierto().id, a.id);
+  s.cerrarEvento(a.id);
+  assert.throws(() => s.abrirEvento({ nombre: '', fecha: '2026-11-08' }), /nombre/);
+});
+
+test('la peña anterior se busca por fecha', () => {
+  const s = globalThis.crearStore(memoria());
+  const b = s.abrirEvento({ nombre: 'Domingo 8', fecha: '2026-11-08' }); s.cerrarEvento(b.id);
+  const a = s.abrirEvento({ nombre: 'Domingo 1', fecha: '2026-11-01' }); s.cerrarEvento(a.id);
+  assert.strictEqual(s.eventoAnterior(b.id).id, a.id);
+  assert.strictEqual(s.eventoAnterior(a.id), null);
+});
+
+test('volver todos los precios a 0', () => {
+  const { s, cerveza, fernet } = storeConProductos();
+  assert.strictEqual(s.reiniciarPrecios(), 2);
+  assert.strictEqual(s.producto(cerveza.id).precio, 0);
+  assert.strictEqual(s.producto(fernet.id).precio, 0);
+  assert.strictEqual(s.producto(cerveza.id).stock, 10);
+  assert.throws(() => s.facturar([{ productoId: cerveza.id, cantidad: 1 }]), /no tiene precio/);
+});
+
 test('no permite códigos repetidos', () => {
   const { s } = storeConProductos();
   assert.throws(() => s.crearProducto({ codigo: 'cer1', nombre: 'Otra', precio: 1 }), /Ya existe/);

@@ -18,6 +18,7 @@
     <nav class="menu" aria-label="Secciones">
       <a href="#inicio" data-vista="inicio">Inicio</a>
       <a href="#vender" data-vista="vender">Vender</a>
+      <a href="#penas" data-vista="penas">Peñas</a>
       <a href="#productos" data-vista="productos">Productos</a>
       <a href="#stock" data-vista="stock">Stock</a>
       <a href="#facturas" data-vista="facturas">Facturas</a>
@@ -36,26 +37,26 @@
       <header class="vista-cabecera">
         <h1>Inicio</h1>
         <div class="botonera">
-          <button type="button" class="btn" data-ver-cierre>Cierre de la noche</button>
+          <span id="accion-pena"></span>
           <a class="btn btn-primario" href="#vender">Nueva venta</a>
         </div>
       </header>
       <div id="primeros-pasos"></div>
       <div class="tarjetas-resumen">
-        <div class="tarjeta-dato"><span class="dato-titulo">Ventas de la noche</span><strong id="res-ventas-hoy">$ 0</strong><span class="dato-sub" id="res-cant-hoy">0 facturas</span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo" id="res-titulo-hoy">Ventas de la noche</span><strong id="res-ventas-hoy">$ 0</strong><span class="dato-sub" id="res-cant-hoy">0 facturas</span></div>
         <div class="tarjeta-dato"><span class="dato-titulo">Ventas del mes</span><strong id="res-ventas-mes">$ 0</strong><span class="dato-sub" id="res-cant-mes">0 facturas</span></div>
         <div class="tarjeta-dato"><span class="dato-titulo">Productos</span><strong id="res-productos">0</strong><span class="dato-sub" id="res-valor-stock">Stock valorizado $ 0</span></div>
         <div class="tarjeta-dato alerta"><span class="dato-titulo">Stock bajo</span><strong id="res-bajo">0</strong><span class="dato-sub">productos para reponer</span></div>
       </div>
       <div class="grilla-2">
         <div class="panel">
-          <h2>Caja de la noche</h2>
-          <p class="ayuda">Se actualiza con cada venta. La noche va de las 6 am a las 6 am del día siguiente.</p>
+          <h2 id="caja-titulo">Caja</h2>
+          <p class="ayuda" id="caja-ayuda"></p>
           <div id="caja-noche"></div>
-          <button type="button" class="btn btn-primario btn-ancho" data-ver-cierre>Ver cierre completo</button>
+          <div id="caja-acciones" class="botonera btn-ancho"></div>
         </div>
         <div class="panel">
-          <h2>Lo que más salió esta noche</h2>
+          <h2 id="mas-vendido-titulo">Lo que más salió</h2>
           <div id="mas-vendido"></div>
         </div>
         <div class="panel">
@@ -72,6 +73,7 @@
     <!-- VENDER -->
     <section class="vista" id="vista-vender">
       <header class="vista-cabecera"><h1>Vender</h1></header>
+      <div id="pos-pena"></div>
       <div class="pos">
         <div class="panel pos-catalogo">
           <input type="search" id="pos-buscar" class="input" placeholder="Buscar en la carta" autocomplete="off">
@@ -166,6 +168,22 @@
     </section>
 
     <!-- FACTURAS -->
+    <section class="vista" id="vista-penas">
+      <header class="vista-cabecera">
+        <h1>Peñas</h1>
+        <span id="accion-pena-2"></span>
+      </header>
+      <div class="panel">
+        <p class="ayuda">Cada peña guarda lo que se facturó en efectivo y en transferencia, para comparar una con otra.</p>
+        <div class="tabla-scroll">
+          <table class="tabla">
+            <thead><tr><th>Peña</th><th>Fecha</th><th class="num">Ventas</th><th class="num">Efectivo</th><th class="num">Transferencia</th><th class="num">Total</th><th>Vs. anterior</th><th></th></tr></thead>
+            <tbody id="tabla-penas"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="vista" id="vista-facturas">
       <header class="vista-cabecera"><h1>Facturas</h1></header>
       <div class="panel">
@@ -205,6 +223,13 @@
           <div class="botonera">
             <button class="btn btn-primario" id="btn-exportar" type="button">Descargar respaldo</button>
             <label class="btn">Restaurar respaldo<input type="file" id="input-importar" accept="application/json" hidden></label>
+          </div>
+          <hr>
+          <h2>Precios</h2>
+          <p class="ayuda">Para empezar de cero con los precios: todos los productos quedan sin precio hasta que los cargues de nuevo. El stock no se toca.</p>
+          <div class="botonera">
+            <button class="btn" type="button" data-carga-rapida>Editar precios</button>
+            <button class="btn btn-peligro" type="button" data-reiniciar-precios>Poner todos los precios en 0</button>
           </div>
           <hr>
           <h2>Carta de La Negrada</h2>

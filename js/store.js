@@ -26,7 +26,8 @@
       },
       productos: [],
       movimientos: [],
-      facturas: []
+      facturas: [],
+      eventos: []
     };
   }
 
@@ -77,7 +78,8 @@
         config: Object.assign(base.config, d.config || {}),
         productos: Array.isArray(d.productos) ? d.productos : [],
         movimientos: Array.isArray(d.movimientos) ? d.movimientos : [],
-        facturas: Array.isArray(d.facturas) ? d.facturas : []
+        facturas: Array.isArray(d.facturas) ? d.facturas : [],
+        eventos: Array.isArray(d.eventos) ? d.eventos : []
       };
     }
 
@@ -147,6 +149,23 @@
         unidad: unidad,
         rinde: rinde
       };
+    }
+
+    // Totales por medio de pago y unidades vendidas por producto (las anuladas no suman)
+    function resumirFacturas(facturas) {
+      var r = { total: 0, porPago: {}, cantidadVentas: 0, anuladas: 0, productos: {} };
+      facturas.forEach(function (f) {
+        if (f.estado === 'anulada') { r.anuladas++; return; }
+        r.cantidadVentas++;
+        r.total = redondear(r.total + f.total);
+        r.porPago[f.medioPago] = redondear((r.porPago[f.medioPago] || 0) + f.total);
+        f.items.forEach(function (i) {
+          if (!r.productos[i.nombre]) r.productos[i.nombre] = { cantidad: 0, monto: 0, unidad: i.unidad || 'unidad' };
+          r.productos[i.nombre].cantidad += i.cantidad;
+          r.productos[i.nombre].monto = redondear(r.productos[i.nombre].monto + i.subtotal);
+        });
+      });
+      return r;
     }
 
     var api = {
@@ -351,6 +370,9 @@
             total: redondear(subtotal - montoDescuento),
             estado: 'emitida'
           };
+          // Si hay una peña abierta, la venta queda registrada en esa peña
+          var abierto = d.eventos.find(function (e) { return e.abierto; });
+          if (abierto) factura.eventoId = abierto.id;
 
           // 4) Dar de baja el stock y registrar cada movimiento
           var ref = api.numeroFormateado(factura);
@@ -394,21 +416,10 @@
        * Devuelve totales por medio de pago y unidades vendidas por producto.
        */
       resumen: function (desde, hasta) {
-        var r = { total: 0, porPago: {}, cantidadVentas: 0, anuladas: 0, productos: {} };
-        datos.facturas.forEach(function (f) {
+        return resumirFacturas(datos.facturas.filter(function (f) {
           var fecha = new Date(f.fecha);
-          if (fecha < desde || fecha >= hasta) return;
-          if (f.estado === 'anulada') { r.anuladas++; return; }
-          r.cantidadVentas++;
-          r.total = redondear(r.total + f.total);
-          r.porPago[f.medioPago] = redondear((r.porPago[f.medioPago] || 0) + f.total);
-          f.items.forEach(function (i) {
-            if (!r.productos[i.nombre]) r.productos[i.nombre] = { cantidad: 0, monto: 0, unidad: i.unidad || 'unidad' };
-            r.productos[i.nombre].cantidad += i.cantidad;
-            r.productos[i.nombre].monto = redondear(r.productos[i.nombre].monto + i.subtotal);
-          });
-        });
-        return r;
+          return fecha >= desde && fecha < hasta;
+        }));
       },
 
       numeroFormateado: function (factura) {
@@ -418,6 +429,93 @@
       },
 
       // ---------- Configuración y respaldo ----------
+      // ---------- Peñas (eventos) ----------
+      eventos: function () { return datos.eventos; },
+      eventoAbierto: function () {
+        return datos.eventos.find(function (e) { return e.abierto; }) || null;
+      },
+
+      // entrada: { nombre, fecha: 'AAAA-MM-DD' }
+      abrirEvento: function (entrada) {
+        return transaccion(function (d) {
+          if (d.eventos.some(function (e) { return e.abierto; })) {
+            throw new Error('Ya hay una peña abierta. Cerrala antes de abrir otra.');
+          }
+          var nombre = String(entrada.nombre || '').trim();
+          if (!nombre) throw new Error('La peña necesita un nombre.');
+          var fecha = String(entrada.fecha || '');
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error('Elegí la fecha de la peña.');
+          var evento = { id: nuevoId(), nombre: nombre, fecha: fecha, abierto: true, apertura: new Date().toISOString(), cierre: null };
+          d.eventos.push(evento);
+          return evento;
+        });
+      },
+
+      cerrarEvento: function (id) {
+        return transaccion(function (d) {
+          var e = d.eventos.find(function (x) { return x.id === id; });
+          if (!e) throw new Error('Peña no encontrada.');
+          if (!e.abierto) throw new Error('Esa peña ya está cerrada.');
+          e.abierto = false;
+          e.cierre = new Date().toISOString();
+          return e;
+        });
+      },
+
+      // Por si se cerró sin querer
+      reabrirEvento: function (id) {
+        return transaccion(function (d) {
+          var e = d.eventos.find(function (x) { return x.id === id; });
+          if (!e) throw new Error('Peña no encontrada.');
+          if (d.eventos.some(function (x) { return x.abierto; })) throw new Error('Ya hay otra peña abierta.');
+          e.abierto = true;
+          e.cierre = null;
+          return e;
+        });
+      },
+
+      editarEvento: function (id, entrada) {
+        return transaccion(function (d) {
+          var e = d.eventos.find(function (x) { return x.id === id; });
+          if (!e) throw new Error('Peña no encontrada.');
+          var nombre = String(entrada.nombre || '').trim();
+          if (!nombre) throw new Error('La peña necesita un nombre.');
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(String(entrada.fecha || ''))) throw new Error('Elegí la fecha de la peña.');
+          e.nombre = nombre;
+          e.fecha = entrada.fecha;
+          return e;
+        });
+      },
+
+      // Peñas ordenadas de la más vieja a la más nueva
+      eventosOrdenados: function () {
+        return datos.eventos.slice().sort(function (a, b) {
+          return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.apertura < b.apertura ? -1 : 1);
+        });
+      },
+
+      eventoAnterior: function (id) {
+        var lista = api.eventosOrdenados();
+        var i = lista.findIndex(function (e) { return e.id === id; });
+        return i > 0 ? lista[i - 1] : null;
+      },
+
+      resumenEvento: function (id) {
+        return resumirFacturas(datos.facturas.filter(function (f) { return f.eventoId === id; }));
+      },
+
+      // ---------- Precios ----------
+      // Vuelve todos los precios a 0 (los productos quedan sin precio hasta cargarlos de nuevo)
+      reiniciarPrecios: function () {
+        return transaccion(function (d) {
+          var n = 0;
+          d.productos.forEach(function (p) {
+            if (p.activo !== false && p.precio !== 0) { p.precio = 0; n++; }
+          });
+          return n;
+        });
+      },
+
       guardarConfig: function (entrada) {
         return transaccion(function (d) {
           var nombre = String(entrada.nombreNegocio || '').trim();

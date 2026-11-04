@@ -9,6 +9,7 @@ App web para que el dueño del bar maneje solo la caja, el stock y la facturaci�
 |---|---|
 | **Inicio** | Caja de la noche por medio de pago, lo que más salió, ventas del mes, productos para reponer y últimas ventas. |
 | **Vender** | Punto de venta con la carta separada en Comidas, Postres y Bebidas. Tocás los productos, armás el ticket, aplicás descuento, elegís medio de pago y facturás. |
+| **Peñas** | Historial de cada peña: efectivo, transferencia, total y comparación con la peña anterior. |
 | **Productos** | Alta, edición y baja de productos con código, categoría, precio, costo y stock mínimo. |
 | **Stock** | Ingreso de mercadería y ajustes por conteo. Historial de todos los movimientos (ventas, ingresos, ajustes, anulaciones). |
 | **Facturas** | Historial con búsqueda y filtro por fechas. Ver, imprimir o anular (al anular, el stock vuelve). |
@@ -36,10 +37,27 @@ Cómo se vende cada cosa:
 
 - **El stock se descuenta en el momento**, con cada venta que se cobra.
 - Al cobrar se elige **Efectivo** o **Transferencia** con dos botones grandes.
-- **Inicio → Caja de la noche** muestra en vivo cuánto entró en efectivo y en transferencia.
-- **Cierre de la noche** (botón en Inicio): efectivo, transferencia y total, cantidad de ventas,
-  lo que se vendió de cada producto y el stock que queda. Se puede imprimir y ver noches anteriores.
-- La noche va de **6 am a 6 am**: una venta a la 1 de la madrugada cuenta para la noche que empezó el día anterior.
+- **Inicio → Caja** muestra en vivo cuánto entró en efectivo y en transferencia en la peña abierta.
+- Si no hay peña abierta, Inicio muestra la noche (de **6 am a 6 am**: una venta a la 1 de la madrugada
+  cuenta para la noche que empezó el día anterior).
+
+### Peñas
+
+1. Al arrancar el evento: **Inicio → Abrir peña**. Se elige la fecha y la app sugiere el nombre
+   (por ejemplo "Peña del domingo 8"), que se puede cambiar.
+2. Todo lo que se vende queda guardado en esa peña. Inicio muestra en vivo efectivo, transferencia y total.
+3. Al terminar: **Cerrar peña**. Aparece el resumen: efectivo, transferencia, total, lo vendido de cada
+   producto y la **comparación con la peña anterior** (cuánto más o menos se facturó, en pesos y en %).
+4. En **Peñas** queda el historial de todas, para comparar.
+
+Si se cierra una peña sin querer, se puede **Reabrir** desde su detalle. También se le puede cambiar el nombre o la fecha.
+Si se vende sin ninguna peña abierta, la venta se cobra igual pero no suma en ninguna peña (la caja avisa).
+
+### Precios
+
+- **Editar precios:** Productos → Cargar precios y stock (o Ajustes → Editar precios).
+- **Volver todos a 0:** Ajustes → Poner todos los precios en 0 (también desde la pantalla de carga).
+  Los productos quedan sin precio hasta cargarlos de nuevo; el stock no se toca.
 
 ### Reglas de stock
 
@@ -59,7 +77,7 @@ Primeros pasos:
    También se abre desde el aviso amarillo de Inicio mientras falten precios.
 2. Cada noche, la misma pantalla (o **Stock → Ingreso de mercadería**) para sumar lo que se preparó o compró
    (por ejemplo: 48 empanadas, 20 chorizos, 30 fernets). Para subir precios por inflación, lo mismo.
-3. A vender desde **Vender**. Al terminar el evento, **Inicio → Cierre de la noche**.
+3. **Abrir peña**, vender desde **Vender** y al terminar **Cerrar peña**.
 4. Si sobró algo o se rompió, **Stock → Ajuste por conteo** con lo que realmente quedó.
 
 ### Instalarla como app en la compu del bar
