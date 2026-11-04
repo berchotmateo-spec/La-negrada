@@ -267,6 +267,45 @@ test('al cerrar la peña queda guardado el stock que sobró', () => {
   assert.strictEqual(foto.stock, 6);
 });
 
+test('volver a cero borra ventas, peñas y reservas pero deja productos, precios y stock', () => {
+  const { s, cerveza, fernet } = storeConProductos();
+  s.ingresarStock(cerveza.id, 5, 'Compra');           // cerveza: 15
+  const pena = s.abrirEvento({ nombre: 'Prueba', fecha: '2026-11-04' });
+  s.facturar([{ productoId: cerveza.id, cantidad: 3 }]); // 12
+  const anulada = s.facturar([{ productoId: fernet.id, cantidad: 1 }]);
+  s.anularFactura(anulada.id);                          // fernet vuelve a 2
+  s.cerrarEvento(pena.id);
+  s.crearReserva({ nombre: 'Test', personas: 2, fecha: '2026-11-04', monto: 100, pagada: true });
+
+  const r = s.volverACero();
+  assert.deepStrictEqual(r, { ventas: 2, penas: 1, reservas: 1 });
+  assert.strictEqual(s.facturas().length, 0);
+  assert.strictEqual(s.eventos().length, 0);
+  assert.strictEqual(s.reservas().length, 0);
+  assert.strictEqual(s.config().proximoNumero, 1);
+  assert.strictEqual(s.producto(cerveza.id).stock, 15);  // vuelve lo vendido
+  assert.strictEqual(s.producto(fernet.id).stock, 2);    // la anulada no se devuelve dos veces
+  assert.strictEqual(s.producto(cerveza.id).precio, 1500);
+  assert.ok(s.movimientos().every((m) => m.tipo === 'ingreso'));
+  const f = s.facturar([{ productoId: cerveza.id, cantidad: 1 }]);
+  assert.strictEqual(f.numero, 1);
+});
+
+test('eliminar una peña borra solo sus ventas y devuelve el stock', () => {
+  const { s, cerveza } = storeConProductos();
+  const a = s.abrirEvento({ nombre: 'Prueba', fecha: '2026-11-01' });
+  s.facturar([{ productoId: cerveza.id, cantidad: 2 }]);
+  s.cerrarEvento(a.id);
+  const b = s.abrirEvento({ nombre: 'Real', fecha: '2026-11-08' });
+  s.facturar([{ productoId: cerveza.id, cantidad: 3 }]);
+  s.cerrarEvento(b.id);
+  assert.strictEqual(s.producto(cerveza.id).stock, 5);
+  assert.strictEqual(s.eliminarEvento(a.id), 1);
+  assert.strictEqual(s.producto(cerveza.id).stock, 7);
+  assert.strictEqual(s.eventos().length, 1);
+  assert.strictEqual(s.resumenEvento(b.id).total, 4500);
+});
+
 test('no permite códigos repetidos', () => {
   const { s } = storeConProductos();
   assert.throws(() => s.crearProducto({ codigo: 'cer1', nombre: 'Otra', precio: 1 }), /Ya existe/);

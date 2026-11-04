@@ -171,6 +171,26 @@
       return r;
     }
 
+    // Borra las facturas que cumplen la condición, devuelve al stock lo vendido (si no estaban anuladas)
+    // y saca sus movimientos de venta/anulación. Devuelve cuántas borró.
+    function borrarVentas(d, condicion) {
+      var aBorrar = d.facturas.filter(condicion);
+      var refs = {};
+      aBorrar.forEach(function (f) {
+        refs[api.numeroFormateado(f)] = true;
+        if (f.estado === 'anulada') return;
+        f.items.forEach(function (l) {
+          var p = buscarProducto(d, l.productoId);
+          if (p) p.stock += l.cantidad;
+        });
+      });
+      d.facturas = d.facturas.filter(function (f) { return !condicion(f); });
+      d.movimientos = d.movimientos.filter(function (m) {
+        return !((m.tipo === 'venta' || m.tipo === 'anulacion') && refs[m.referencia]);
+      });
+      return aBorrar.length;
+    }
+
     function buscarReserva(d, id) {
       var r = d.reservas.find(function (x) { return x.id === id; });
       if (!r) throw new Error('Reserva no encontrada.');
@@ -534,6 +554,35 @@
 
       resumenEvento: function (id) {
         return resumirFacturas(datos.facturas.filter(function (f) { return f.eventoId === id; }));
+      },
+
+      /*
+       * Borra una peña y sus ventas (por ejemplo, una de prueba).
+       * Lo vendido vuelve al stock. Las reservas no se tocan.
+       */
+      eliminarEvento: function (id) {
+        return transaccion(function (d) {
+          var e = d.eventos.find(function (x) { return x.id === id; });
+          if (!e) throw new Error('Peña no encontrada.');
+          var borradas = borrarVentas(d, function (f) { return f.eventoId === id; });
+          d.eventos = d.eventos.filter(function (x) { return x.id !== id; });
+          return borradas;
+        });
+      },
+
+      /*
+       * Volver a cero: borra todas las ventas, peñas y reservas (por ejemplo, las de prueba)
+       * y la numeración de facturas vuelve a 1. Productos, precios y stock se mantienen;
+       * lo que se había descontado por esas ventas vuelve al stock.
+       */
+      volverACero: function () {
+        return transaccion(function (d) {
+          var r = { ventas: borrarVentas(d, function () { return true; }), penas: d.eventos.length, reservas: d.reservas.length };
+          d.eventos = [];
+          d.reservas = [];
+          d.config.proximoNumero = 1;
+          return r;
+        });
       },
 
       // ---------- Reservas de entradas ----------

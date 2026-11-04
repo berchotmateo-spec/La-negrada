@@ -193,7 +193,7 @@
     if (entradas.cantidad) {
       $('#caja-noche').innerHTML += '<p class="caja-entradas">Entradas: <strong>' + plata(entradas.cobrado) + '</strong> cobrado' +
         (entradas.pendiente ? ' · <span class="texto-naranja">' + plata(entradas.pendiente) + ' a cobrar en efectivo</span>' : '') +
-        ' · ' + entradas.personas + ' personas</p>';
+        ' · ' + entradas.personas + (entradas.personas === 1 ? ' persona' : ' personas') + '</p>';
     }
     $('#caja-acciones').innerHTML = pena
       ? '<button type="button" class="btn" data-ver-pena="' + pena.id + '">Ver detalle</button>' +
@@ -805,6 +805,7 @@
       htmlPena(e) +
       '<div class="acciones-modal">' +
       '<button type="button" class="btn" id="btn-editar-pena">Cambiar nombre o fecha</button>' +
+      '<button type="button" class="btn btn-peligro" id="btn-eliminar-pena">Eliminar</button>' +
       (!e.abierto && !hayOtraAbierta ? '<button type="button" class="btn" id="btn-reabrir-pena">Reabrir</button>' : '') +
       '<span class="espacio"></span>' +
       '<button type="button" class="btn" data-cerrar>Cerrar</button>' +
@@ -816,6 +817,12 @@
       window.print();
     });
     $('#btn-editar-pena').addEventListener('click', function () { formularioPena(e); });
+    $('#btn-eliminar-pena').addEventListener('click', function () {
+      var r = store.resumenEvento(e.id);
+      if (!confirm('¿Eliminar "' + e.nombre + '"?\n\nSe borran sus ' + (r.cantidadVentas + r.anuladas) + ' ventas (' + plata(r.total) +
+        ') y lo vendido vuelve al stock. Las reservas no se tocan.\n\nNo se puede deshacer.')) return;
+      if (intentar(function () { return store.eliminarEvento(e.id); }, 'Peña eliminada.') !== null) cerrarModal();
+    });
     var reabrir = $('#btn-reabrir-pena');
     if (reabrir) {
       reabrir.addEventListener('click', function () {
@@ -1026,6 +1033,18 @@
     }
   });
 
+  function volverACero() {
+    var ventas = store.facturas().length, penas = store.eventos().length, reservas = store.reservas().length;
+    if (!ventas && !penas && !reservas) { aviso('Ya está todo en cero.'); return; }
+    if (!confirm('¿Volver a cero?\n\nSe borran:\n• ' + ventas + (ventas === 1 ? ' venta' : ' ventas') +
+      '\n• ' + penas + (penas === 1 ? ' peña' : ' peñas') + '\n• ' + reservas + (reservas === 1 ? ' reserva' : ' reservas') +
+      '\n\nSe mantienen los productos, los precios y el stock (lo vendido vuelve al stock).')) return;
+    if (!confirm('Última confirmación: esto no se puede deshacer. ¿Volver a cero?')) return;
+    carrito = [];
+    var r = intentar(function () { return store.volverACero(); });
+    if (r) aviso('Listo, todo en cero. Ya podés abrir la peña.');
+  }
+
   function reiniciarPrecios() {
     if (!confirm('¿Poner TODOS los precios en 0?\n\nLos productos quedan sin precio y no se pueden vender hasta cargarlos de nuevo. El stock no cambia.')) return;
     var n = intentar(function () { return store.reiniciarPrecios(); });
@@ -1040,6 +1059,7 @@
     else if (t.closest('[data-cerrar-pena]')) cerrarPena();
     else if (t.closest('[data-ver-pena]')) verPena(t.closest('[data-ver-pena]').dataset.verPena);
     else if (t.closest('[data-reiniciar-precios]')) reiniciarPrecios();
+    else if (t.closest('[data-volver-a-cero]')) volverACero();
   });
 
   document.addEventListener('click', function (e) {

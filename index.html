@@ -69,6 +69,14 @@
           <div id="lista-ultimas"></div>
         </div>
       </div>
+      <div class="zona-reset">
+        <div>
+          <strong>¿Hiciste ventas de prueba?</strong>
+          <p>Volver a cero borra las ventas, las peñas y las reservas, y las facturas vuelven a empezar desde el número 1.
+          Los productos, los precios y el stock quedan como están (lo que se vendió de prueba vuelve al stock).</p>
+        </div>
+        <button type="button" class="btn btn-peligro" data-volver-a-cero>Volver a cero</button>
+      </div>
     </section>
 
     <!-- VENDER -->
@@ -259,6 +267,13 @@
           <p class="ayuda">Vuelve a cargar los productos de la carta que falten (sin precio ni stock).</p>
           <div class="botonera">
             <button class="btn" id="btn-demo" type="button">Cargar la carta</button>
+          </div>
+          <hr>
+          <h2>Empezar de cero</h2>
+          <p class="ayuda"><strong>Volver a cero:</strong> borra ventas, peñas y reservas. Deja productos, precios y stock.</p>
+          <p class="ayuda"><strong>Borrar todo:</strong> deja la app vacía, sin productos ni nada.</p>
+          <div class="botonera">
+            <button class="btn btn-peligro" type="button" data-volver-a-cero>Volver a cero</button>
             <button class="btn btn-peligro" id="btn-borrar" type="button">Borrar todo</button>
           </div>
         </div>

@@ -68,6 +68,14 @@ para llevar el control de stock entre patios.
 6. En el cierre de la peña aparecen las entradas (transferencia, efectivo y lo que faltó cobrar)
    y el total de la peña: bar + entradas cobradas.
 
+### Volver a cero (ventas de prueba)
+
+- **Inicio → abajo de todo → Volver a cero** (también en Ajustes): borra todas las ventas, peñas y reservas,
+  y las facturas vuelven a empezar desde el número 1. **Productos, precios y stock se mantienen**:
+  lo que se vendió de prueba vuelve al stock. Pide confirmación dos veces.
+- **Eliminar una sola peña:** Peñas → Ver → Eliminar. Borra esa peña y sus ventas (vuelven al stock).
+- **Borrar todo** (Ajustes) deja la app vacía, sin productos.
+
 ### Precios
 
 - **Editar precios:** Productos → Cargar precios y stock (o Ajustes → Editar precios).

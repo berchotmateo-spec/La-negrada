@@ -361,3 +361,15 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
   .menu { overflow-x: auto; justify-content: flex-start; }
   .menu a { flex: 0 0 auto; padding: 10px 8px; }
 }
+
+/* Volver a cero */
+.zona-reset {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px;
+  padding: 16px 18px; border: 1px dashed #e0b4ae; border-radius: var(--radio); background: #fff;
+}
+.zona-reset p { margin: 4px 0 0; color: var(--tenue); font-size: .88rem; }
+@media (max-width: 720px) { .zona-reset { flex-direction: column; align-items: flex-start; } }
+
+/* Avisos abajo al centro del contenido; nunca bloquean clics */
+.avisos { pointer-events: none; }
+@media (min-width: 721px) { .avisos { right: auto; left: calc(50% + 110px); transform: translateX(-50%); align-items: center; } }
