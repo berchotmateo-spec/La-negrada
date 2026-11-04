@@ -110,7 +110,8 @@ Primeros pasos:
 Link: **https://berchotmateo-spec.github.io/La-negrada/**
 
 1. Abrir el link en Chrome o Edge.
-2. Tocar **Instalar app** (abajo del menú) o el ícono de instalar en la barra de direcciones.
+2. Tocar **Instalar app** (abajo del menú de la izquierda, o en Ajustes). Si el navegador lo permite, instala directo;
+   si no, muestra los pasos para Brave, Chrome o Edge.
 3. Queda un ícono con el logo en el escritorio y se abre en su propia ventana.
 
 Una vez abierta con internet, **funciona aunque se corte la conexión**.

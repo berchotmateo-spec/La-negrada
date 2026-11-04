@@ -25,7 +25,7 @@
       <a href="#facturas" data-vista="facturas">Facturas</a>
       <a href="#config" data-vista="config">Ajustes</a>
     </nav>
-    <button type="button" class="btn-instalar" id="btn-instalar" hidden>Instalar app</button>
+    <button type="button" class="btn-instalar" id="btn-instalar" data-instalar>⤓ Instalar app</button>
   </aside>
 
   <main class="contenido">
@@ -250,6 +250,10 @@
           </form>
         </div>
         <div class="panel">
+          <h2>Instalar en esta compu</h2>
+          <p class="ayuda" id="instalar-estado">Deja un ícono con el logo en el escritorio y la app se abre en su propia ventana, aunque no haya internet.</p>
+          <div class="botonera"><button class="btn btn-primario" type="button" data-instalar>Instalar app</button></div>
+          <hr>
           <h2>Respaldo de datos</h2>
           <p class="ayuda">Los datos se guardan en este navegador. Descargá un respaldo seguido y guardalo en Drive o en un pendrive.</p>
           <div class="botonera">

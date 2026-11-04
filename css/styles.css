@@ -373,3 +373,18 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 /* Avisos abajo al centro del contenido; nunca bloquean clics */
 .avisos { pointer-events: none; }
 @media (min-width: 721px) { .avisos { right: auto; left: calc(50% + 110px); transform: translateX(-50%); align-items: center; } }
+
+/* Menú lateral: se puede desplazar y se achica en pantallas bajas (notebooks) */
+.sidebar { overflow-y: auto; display: flex; flex-direction: column; }
+@media (min-width: 721px) and (max-height: 720px) {
+  .sidebar { padding: 12px 12px; }
+  .marca { margin: 0 0 12px; }
+  .marca-logo { width: 84px; height: 84px; }
+  .menu { gap: 2px; }
+  .menu a { padding: 7px 12px; }
+  .btn-instalar { margin-top: 12px; padding: 8px 10px; }
+}
+/* Pasos para instalar */
+.paso-rapido { background: var(--verde-fondo); border-radius: 10px; padding: 12px 14px; margin: 12px 0; line-height: 1.5; }
+.pasos { margin: 6px 0 12px; padding-left: 22px; line-height: 1.7; }
+[data-instalar][hidden] { display: none !important; }

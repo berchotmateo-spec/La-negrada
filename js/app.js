@@ -1144,23 +1144,69 @@
     if (e.key === window.STORE_KEY) store.recargar();
   });
 
-  // Botón para instalar la app (Chrome / Edge). Solo aparece si el navegador lo permite.
+  // ---------- Instalar la app ----------
+  // El botón está siempre visible, salvo cuando ya se está usando como app instalada.
+  // Si el navegador permite instalar directo, se instala; si no, se muestran los pasos.
   var pedidoInstalar = null;
+  var yaInstalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  document.querySelectorAll('[data-instalar]').forEach(function (b) { b.hidden = yaInstalada; });
+  if (yaInstalada && $('#instalar-estado')) $('#instalar-estado').textContent = 'Ya la estás usando como app instalada.';
+
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     pedidoInstalar = e;
-    $('#btn-instalar').hidden = false;
   });
-  $('#btn-instalar').addEventListener('click', function () {
-    if (!pedidoInstalar) return;
-    pedidoInstalar.prompt();
-    pedidoInstalar.userChoice.then(function () {
-      pedidoInstalar = null;
-      $('#btn-instalar').hidden = true;
-    });
+
+  function navegador() {
+    var ua = navigator.userAgent;
+    if (navigator.brave) return 'brave';
+    if (/Edg\//.test(ua)) return 'edge';
+    if (/Firefox\//.test(ua)) return 'firefox';
+    if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'safari';
+    return 'chrome';
+  }
+
+  function pasosInstalar() {
+    var nav = navegador();
+    var pasos = {
+      brave: ['Arriba a la derecha, tocá el menú <strong>☰</strong> (tres rayitas).',
+        'Entrá a <strong>Guardar y compartir</strong> (o <strong>Más herramientas</strong>).',
+        'Tocá <strong>Instalar La Negrada…</strong> o <strong>Instalar página como app</strong> y después <strong>Instalar</strong>.'],
+      chrome: ['Arriba a la derecha, tocá el menú <strong>⋮</strong> (tres puntitos).',
+        'Entrá a <strong>Transmitir, guardar y compartir</strong>.',
+        'Tocá <strong>Instalar página como app…</strong> y después <strong>Instalar</strong>.'],
+      edge: ['Arriba a la derecha, tocá el menú <strong>…</strong> (tres puntitos).',
+        'Entrá a <strong>Aplicaciones</strong>.',
+        'Tocá <strong>Instalar este sitio como una aplicación</strong> y después <strong>Instalar</strong>.'],
+      firefox: ['Firefox en la compu no instala apps.', 'Abrí este mismo link en <strong>Chrome</strong>, <strong>Edge</strong> o <strong>Brave</strong> y tocá de nuevo "Instalar app".'],
+      safari: ['En la barra de arriba, tocá <strong>Archivo</strong> (o el botón de compartir).', 'Elegí <strong>Agregar al Dock</strong>.']
+    };
+    var nombres = { brave: 'Brave', chrome: 'Chrome', edge: 'Edge', firefox: 'Firefox', safari: 'Safari' };
+    abrirModal(
+      '<h2>Instalar la app en esta compu</h2>' +
+      '<p class="ayuda">Así queda un ícono con el logo en el escritorio y se abre en su propia ventana, aunque no haya internet.</p>' +
+      (nav !== 'firefox' && nav !== 'safari'
+        ? '<div class="paso-rapido"><strong>Forma rápida:</strong> en la barra de la dirección (donde dice berchotmateo-spec.github.io), ' +
+          'a la derecha, buscá un ícono de una <strong>pantalla con una flechita</strong> ⤓ y tocalo.</div>'
+        : '') +
+      '<p class="etiqueta-campo">Si no lo ves, en ' + nombres[nav] + ':</p>' +
+      '<ol class="pasos">' + pasos[nav].map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol>' +
+      '<p class="ayuda">Después, para abrirla, usá el ícono de <strong>La Negrada</strong> del escritorio. Los datos son los mismos.</p>' +
+      '<div class="acciones-modal"><span class="espacio"></span><button type="button" class="btn btn-primario" data-cerrar>Entendido</button></div>'
+    );
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('[data-instalar]')) return;
+    if (pedidoInstalar) {
+      pedidoInstalar.prompt();
+      pedidoInstalar.userChoice.then(function () { pedidoInstalar = null; });
+    } else {
+      pasosInstalar();
+    }
   });
   window.addEventListener('appinstalled', function () {
-    $('#btn-instalar').hidden = true;
+    document.querySelectorAll('[data-instalar]').forEach(function (b) { b.hidden = true; });
     aviso('App instalada. Ya la podés abrir desde el escritorio.');
   });
 
