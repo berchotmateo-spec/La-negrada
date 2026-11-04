@@ -223,6 +223,36 @@
         });
       },
 
+      /*
+       * Carga rápida: cambia precios y suma stock de varios productos en un solo guardado.
+       * filas: [{ productoId, precio, ingreso }]  (campos vacíos = no cambiar)
+       * Si una fila tiene un error, no se guarda ninguna.
+       */
+      cargaRapida: function (filas) {
+        return transaccion(function (d) {
+          var cambios = 0;
+          filas.forEach(function (f) {
+            var p = buscarProducto(d, f.productoId);
+            if (!p) throw new Error('Producto no encontrado.');
+            if (f.precio !== '' && f.precio != null) {
+              var precio = aNumero(f.precio, 'Precio de ' + p.nombre);
+              if (precio < 0) throw new Error('El precio de ' + p.nombre + ' no puede ser negativo.');
+              if (redondear(precio) !== p.precio) { p.precio = redondear(precio); cambios++; }
+            }
+            if (f.ingreso !== '' && f.ingreso != null) {
+              var cant = aEntero(f.ingreso, 'Stock que entra de ' + p.nombre);
+              if (cant < 0) throw new Error('El stock que entra de ' + p.nombre + ' no puede ser negativo.');
+              if (cant > 0) {
+                p.stock += cant;
+                registrarMovimiento(d, p, 'ingreso', cant, '', 'Carga rápida');
+                cambios++;
+              }
+            }
+          });
+          return cambios;
+        });
+      },
+
       // ---------- Facturación ----------
       /*
        * items: [{ productoId, cantidad }]

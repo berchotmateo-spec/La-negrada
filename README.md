@@ -43,8 +43,11 @@ No hace falta instalar nada: abrí `index.html` con el navegador (Chrome, Edge o
 
 Primeros pasos:
 
-1. **Productos → Editar** en cada producto para cargarle el precio.
-2. **Stock → Ingreso de mercadería** al arrancar la noche (por ejemplo: 48 empanadas, 20 chorizos, 30 fernets).
+1. **Productos → Cargar precios y stock**: aparece la carta entera en una lista. Se escribe el precio de cada
+   producto y cuánto stock entra (Enter pasa al siguiente casillero) y se guarda todo junto.
+   También se abre desde el aviso amarillo de Inicio mientras falten precios.
+2. Cada noche, la misma pantalla (o **Stock → Ingreso de mercadería**) para sumar lo que se preparó o compró
+   (por ejemplo: 48 empanadas, 20 chorizos, 30 fernets). Para subir precios por inflación, lo mismo.
 3. A vender desde **Vender**. Al cerrar, mirar **Inicio → Caja de la noche**.
 4. Si sobró algo o se rompió, **Stock → Ajuste por conteo** con lo que realmente quedó.
 

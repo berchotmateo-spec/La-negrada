@@ -143,7 +143,7 @@
         '<p>' + esc(sinPrecio.slice(0, 5).map(function (p) { return p.nombre; }).join(', ')) +
         (sinPrecio.length > 5 ? ' y ' + (sinPrecio.length - 5) + ' más' : '') +
         '. Hasta que tengan precio y stock no se pueden vender.</p></div>' +
-        '<a class="btn btn-primario" href="#productos">Cargar precios</a></div>'
+        '<button type="button" class="btn btn-primario" data-carga-rapida>Cargar precios</button></div>'
       : '';
 
     // Caja de la noche por medio de pago
@@ -393,6 +393,72 @@
   }
 
   $('#btn-nuevo-producto').addEventListener('click', function () { formularioProducto(null); });
+
+  // Carga rápida: todos los productos en una lista para poner precio y stock de corrido.
+  function cargaRapida() {
+    var ordenCat = categorias();
+    var lista = store.productos().slice().sort(function (a, b) {
+      return (ordenCat.indexOf(a.categoria) - ordenCat.indexOf(b.categoria)) || a.nombre.localeCompare(b.nombre);
+    });
+    if (!lista.length) { aviso('Primero cargá productos.', 'error'); return; }
+    var categoriaAnterior = null;
+    var filas = lista.map(function (p) {
+      var titulo = '';
+      if (p.categoria !== categoriaAnterior) {
+        categoriaAnterior = p.categoria;
+        titulo = '<tr class="fila-categoria"><td colspan="4">' + esc(p.categoria || 'Sin categoría') + '</td></tr>';
+      }
+      return titulo + '<tr data-id="' + p.id + '"><td>' + esc(p.nombre) + '</td>' +
+        '<td><input class="input input-tabla" name="precio" type="number" min="0" step="0.01" inputmode="decimal"' +
+        ' value="' + (p.precio > 0 ? p.precio : '') + '" placeholder="$" aria-label="Precio de ' + esc(p.nombre) + '"></td>' +
+        '<td class="num tenue">' + p.stock + '</td>' +
+        '<td><input class="input input-tabla" name="ingreso" type="number" min="0" step="1" inputmode="numeric"' +
+        ' placeholder="0" aria-label="Stock que entra de ' + esc(p.nombre) + '"></td></tr>';
+    }).join('');
+
+    abrirModal(
+      '<form id="form-carga-rapida" class="form">' +
+      '<h2>Cargar precios y stock</h2>' +
+      '<p class="ayuda">Escribí el precio de cada producto y, si querés, cuánto stock entra. ' +
+      'Lo que dejes vacío no se cambia. Con Enter pasás al siguiente casillero.</p>' +
+      '<div class="tabla-scroll alto-fijo"><table class="tabla tabla-carga">' +
+      '<thead><tr><th>Producto</th><th>Precio</th><th class="num">Hay</th><th>Entra</th></tr></thead>' +
+      '<tbody>' + filas + '</tbody></table></div>' +
+      '<div class="acciones-modal"><span class="espacio"></span>' +
+      '<button type="button" class="btn" data-cerrar>Cancelar</button>' +
+      '<button type="submit" class="btn btn-primario">Guardar todo</button></div></form>'
+    );
+
+    var form = $('#form-carga-rapida');
+    var inputs = Array.from(form.querySelectorAll('input'));
+    inputs.forEach(function (input, i) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        if (inputs[i + 1]) inputs[i + 1].focus(); else form.querySelector('[type=submit]').focus();
+      });
+    });
+    inputs[0].focus();
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var datos = Array.from(form.querySelectorAll('tr[data-id]')).map(function (tr) {
+        return {
+          productoId: tr.dataset.id,
+          precio: tr.querySelector('[name=precio]').value.trim(),
+          ingreso: tr.querySelector('[name=ingreso]').value.trim()
+        };
+      });
+      var cambios = intentar(function () { return store.cargaRapida(datos); });
+      if (cambios === null) return;
+      cerrarModal();
+      aviso(cambios ? 'Listo: ' + cambios + (cambios === 1 ? ' cambio guardado.' : ' cambios guardados.') : 'No había nada para cambiar.');
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-carga-rapida]')) cargaRapida();
+  });
   $('#prod-buscar').addEventListener('input', renderProductos);
   $('#tabla-productos').addEventListener('click', function (e) {
     var b = e.target.closest('button');

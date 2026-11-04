@@ -198,6 +198,13 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 .banner p { margin: 4px 0 0; color: #5e4a14; font-size: .9rem; }
 .lista .fila-total { border-top: 2px solid var(--texto); border-bottom: 0; font-size: 1.05rem; }
 
+/* Carga rápida */
+.tabla-carga td { padding: 6px 8px; }
+.input-tabla { padding: 7px 10px; max-width: 140px; }
+.input-tabla { -moz-appearance: textfield; appearance: textfield; min-width: 70px; }
+.input-tabla::-webkit-outer-spin-button, .input-tabla::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fila-categoria td { background: #f5f2ec; font-weight: 700; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--tenue); }
+
 /* ---------- Modal ---------- */
 .modal { border: 0; border-radius: 14px; padding: 22px; width: min(640px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
 .modal::backdrop { background: rgba(20, 18, 15, .45); }

@@ -98,6 +98,33 @@ test('no deja facturar productos sin precio', () => {
   assert.strictEqual(s.producto(p.id).stock, 5);
 });
 
+test('carga rápida cambia precios y suma stock de varios productos', () => {
+  const s = globalThis.crearStore(memoria());
+  const a = s.crearProducto({ nombre: 'Empanada', precio: 0 });
+  const b = s.crearProducto({ nombre: 'Vino', precio: 0, stock: 2 });
+  const cambios = s.cargaRapida([
+    { productoId: a.id, precio: '1500', ingreso: '48' },
+    { productoId: b.id, precio: '', ingreso: '' }
+  ]);
+  assert.strictEqual(cambios, 2);
+  assert.strictEqual(s.producto(a.id).precio, 1500);
+  assert.strictEqual(s.producto(a.id).stock, 48);
+  assert.strictEqual(s.producto(b.id).precio, 0);
+  assert.strictEqual(s.producto(b.id).stock, 2);
+});
+
+test('carga rápida con un error no guarda nada', () => {
+  const s = globalThis.crearStore(memoria());
+  const a = s.crearProducto({ nombre: 'Empanada', precio: 0 });
+  const b = s.crearProducto({ nombre: 'Vino', precio: 0 });
+  assert.throws(() => s.cargaRapida([
+    { productoId: a.id, precio: '1500', ingreso: '10' },
+    { productoId: b.id, precio: '-3', ingreso: '' }
+  ]), /negativo/);
+  assert.strictEqual(s.producto(a.id).precio, 0);
+  assert.strictEqual(s.producto(a.id).stock, 0);
+});
+
 test('no permite códigos repetidos', () => {
   const { s } = storeConProductos();
   assert.throws(() => s.crearProducto({ codigo: 'cer1', nombre: 'Otra', precio: 1 }), /Ya existe/);
