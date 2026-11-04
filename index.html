@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>La Negrada · Gestión</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="marca">
+      <span class="marca-logo">LN</span>
+      <span class="marca-nombre" id="marca-nombre">La Negrada</span>
+    </div>
+    <nav class="menu" aria-label="Secciones">
+      <a href="#inicio" data-vista="inicio">Inicio</a>
+      <a href="#vender" data-vista="vender">Vender</a>
+      <a href="#productos" data-vista="productos">Productos</a>
+      <a href="#stock" data-vista="stock">Stock</a>
+      <a href="#facturas" data-vista="facturas">Facturas</a>
+      <a href="#config" data-vista="config">Ajustes</a>
+    </nav>
+  </aside>
+
+  <main class="contenido">
+    <!-- INICIO -->
+    <section class="vista" id="vista-inicio">
+      <header class="vista-cabecera">
+        <h1>Inicio</h1>
+        <a class="btn btn-primario" href="#vender">Nueva venta</a>
+      </header>
+      <div class="tarjetas-resumen">
+        <div class="tarjeta-dato"><span class="dato-titulo">Ventas de hoy</span><strong id="res-ventas-hoy">$ 0</strong><span class="dato-sub" id="res-cant-hoy">0 facturas</span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo">Ventas del mes</span><strong id="res-ventas-mes">$ 0</strong><span class="dato-sub" id="res-cant-mes">0 facturas</span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo">Productos</span><strong id="res-productos">0</strong><span class="dato-sub" id="res-valor-stock">Stock valorizado $ 0</span></div>
+        <div class="tarjeta-dato alerta"><span class="dato-titulo">Stock bajo</span><strong id="res-bajo">0</strong><span class="dato-sub">productos para reponer</span></div>
+      </div>
+      <div class="grilla-2">
+        <div class="panel">
+          <h2>Para reponer</h2>
+          <div id="lista-bajo-stock"></div>
+        </div>
+        <div class="panel">
+          <h2>Últimas ventas</h2>
+          <div id="lista-ultimas"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VENDER -->
+    <section class="vista" id="vista-vender">
+      <header class="vista-cabecera"><h1>Vender</h1></header>
+      <div class="pos">
+        <div class="panel pos-catalogo">
+          <input type="search" id="pos-buscar" class="input" placeholder="Buscar nombre o código" autocomplete="off">
+          <div id="pos-productos" class="pos-productos"></div>
+        </div>
+        <div class="panel pos-ticket">
+          <h2>Ticket</h2>
+          <div id="pos-carrito"></div>
+          <div class="pos-totales">
+            <div><span>Subtotal</span><span id="pos-subtotal">$ 0</span></div>
+            <div class="fila-descuento">
+              <label for="pos-descuento">Descuento %</label>
+              <input type="number" id="pos-descuento" class="input input-chico" min="0" max="100" step="1" value="0">
+            </div>
+            <div class="total"><span>Total</span><span id="pos-total">$ 0</span></div>
+          </div>
+          <div class="pos-datos">
+            <input type="text" id="pos-cliente" class="input" placeholder="Cliente (opcional)">
+            <input type="text" id="pos-documento" class="input" placeholder="DNI / CUIT (opcional)">
+            <select id="pos-pago" class="input">
+              <option>Efectivo</option>
+              <option>Débito</option>
+              <option>Crédito</option>
+              <option>Transferencia</option>
+              <option>Mercado Pago</option>
+            </select>
+          </div>
+          <div class="acciones-ticket">
+            <button class="btn" id="pos-vaciar" type="button">Vaciar</button>
+            <button class="btn btn-primario" id="pos-facturar" type="button">Facturar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUCTOS -->
+    <section class="vista" id="vista-productos">
+      <header class="vista-cabecera">
+        <h1>Productos</h1>
+        <button class="btn btn-primario" id="btn-nuevo-producto" type="button">Nuevo producto</button>
+      </header>
+      <div class="panel">
+        <input type="search" id="prod-buscar" class="input" placeholder="Buscar producto o categoría">
+        <div class="tabla-scroll">
+          <table class="tabla">
+            <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th class="num">Precio</th><th class="num">Stock</th><th></th></tr></thead>
+            <tbody id="tabla-productos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section class="vista" id="vista-stock">
+      <header class="vista-cabecera"><h1>Stock</h1></header>
+      <div class="grilla-2">
+        <div class="panel">
+          <h2>Mover stock</h2>
+          <form id="form-stock" class="form">
+            <label>Producto
+              <select id="stock-producto" class="input" required></select>
+            </label>
+            <label>Operación
+              <select id="stock-tipo" class="input">
+                <option value="ingreso">Ingreso de mercadería (suma)</option>
+                <option value="ajuste">Ajuste por conteo (fija el stock real)</option>
+              </select>
+            </label>
+            <label><span id="stock-cantidad-label">Cantidad que ingresa</span>
+              <input type="number" id="stock-cantidad" class="input" min="0" step="1" required>
+            </label>
+            <label>Nota
+              <input type="text" id="stock-nota" class="input" placeholder="Ej: compra a proveedor, rotura...">
+            </label>
+            <p class="ayuda" id="stock-actual"></p>
+            <button class="btn btn-primario" type="submit">Guardar movimiento</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Movimientos</h2>
+          <div class="tabla-scroll alto-fijo">
+            <table class="tabla">
+              <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th class="num">Cant.</th><th class="num">Queda</th><th>Ref.</th></tr></thead>
+              <tbody id="tabla-movimientos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FACTURAS -->
+    <section class="vista" id="vista-facturas">
+      <header class="vista-cabecera"><h1>Facturas</h1></header>
+      <div class="panel">
+        <div class="filtros">
+          <input type="search" id="fac-buscar" class="input" placeholder="Buscar por número o cliente">
+          <input type="date" id="fac-desde" class="input" aria-label="Desde">
+          <input type="date" id="fac-hasta" class="input" aria-label="Hasta">
+        </div>
+        <div class="tabla-scroll">
+          <table class="tabla">
+            <thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th>Pago</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="tabla-facturas"></tbody>
+          </table>
+        </div>
+        <p class="ayuda" id="fac-resumen"></p>
+      </div>
+    </section>
+
+    <!-- CONFIGURACIÓN -->
+    <section class="vista" id="vista-config">
+      <header class="vista-cabecera"><h1>Ajustes</h1></header>
+      <div class="grilla-2">
+        <div class="panel">
+          <h2>Datos del negocio</h2>
+          <form id="form-config" class="form">
+            <label>Nombre<input type="text" name="nombreNegocio" class="input" required></label>
+            <label>CUIT<input type="text" name="cuit" class="input"></label>
+            <label>Dirección<input type="text" name="direccion" class="input"></label>
+            <label>Teléfono<input type="text" name="telefono" class="input"></label>
+            <label>Punto de venta<input type="number" name="puntoVenta" class="input" min="1" step="1" required></label>
+            <button class="btn btn-primario" type="submit">Guardar</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Respaldo de datos</h2>
+          <p class="ayuda">Los datos se guardan en este navegador. Descargá un respaldo seguido y guardalo en Drive o en un pendrive.</p>
+          <div class="botonera">
+            <button class="btn btn-primario" id="btn-exportar" type="button">Descargar respaldo</button>
+            <label class="btn">Restaurar respaldo<input type="file" id="input-importar" accept="application/json" hidden></label>
+          </div>
+          <hr>
+          <h2>Datos de prueba</h2>
+          <p class="ayuda">Carga productos de ejemplo para probar la app.</p>
+          <div class="botonera">
+            <button class="btn" id="btn-demo" type="button">Cargar ejemplos</button>
+            <button class="btn btn-peligro" id="btn-borrar" type="button">Borrar todo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal genérico -->
+  <dialog id="modal" class="modal">
+    <div id="modal-contenido"></div>
+  </dialog>
+
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+
+  <!-- Área de impresión del comprobante -->
+  <div id="impresion" class="impresion"></div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
