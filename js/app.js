@@ -662,6 +662,26 @@
     if (e.key === window.STORE_KEY) store.recargar();
   });
 
+  // Botón para instalar la app (Chrome / Edge). Solo aparece si el navegador lo permite.
+  var pedidoInstalar = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    pedidoInstalar = e;
+    $('#btn-instalar').hidden = false;
+  });
+  $('#btn-instalar').addEventListener('click', function () {
+    if (!pedidoInstalar) return;
+    pedidoInstalar.prompt();
+    pedidoInstalar.userChoice.then(function () {
+      pedidoInstalar = null;
+      $('#btn-instalar').hidden = true;
+    });
+  });
+  window.addEventListener('appinstalled', function () {
+    $('#btn-instalar').hidden = true;
+    aviso('App instalada. Ya la podés abrir desde el escritorio.');
+  });
+
   renderTodo();
   mostrarVista();
 })();

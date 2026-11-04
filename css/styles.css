@@ -55,6 +55,13 @@ h2 { font-size: 1.05rem; margin: 0 0 12px; }
 }
 .menu a:hover { background: rgba(255, 255, 255, .08); color: #fff; }
 .menu a.activo { background: var(--acento); color: #fff; }
+.btn-instalar {
+  margin-top: 24px; width: 100%; padding: 10px 12px; border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, .35); background: transparent; color: #fff;
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.btn-instalar:hover { background: rgba(255, 255, 255, .08); }
+.btn-instalar[hidden] { display: none; }
 
 /* ---------- Contenido ---------- */
 .contenido { flex: 1; padding: 28px; min-width: 0; }
@@ -248,6 +255,7 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
     width: 100%; height: auto; padding: 6px; z-index: 40;
   }
   .marca { display: none; }
+  .btn-instalar { display: none; }
   .barra-movil { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-weight: 700; }
   .barra-movil img { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--borde); object-fit: cover; }
   .barra-movil em { display: block; font-weight: 400; font-size: .8rem; color: var(--tenue); }

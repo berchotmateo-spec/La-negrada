@@ -51,6 +51,16 @@ Primeros pasos:
 3. A vender desde **Vender**. Al cerrar, mirar **Inicio → Caja de la noche**.
 4. Si sobró algo o se rompió, **Stock → Ajuste por conteo** con lo que realmente quedó.
 
+### Instalarla como app en la compu del bar
+
+Link: **https://berchotmateo-spec.github.io/La-negrada/**
+
+1. Abrir el link en Chrome o Edge.
+2. Tocar **Instalar app** (abajo del menú) o el ícono de instalar en la barra de direcciones.
+3. Queda un ícono con el logo en el escritorio y se abre en su propia ventana.
+
+Una vez abierta con internet, **funciona aunque se corte la conexión**.
+
 ### Publicarla gratis con GitHub Pages
 
 1. En GitHub, entrá al repositorio → **Settings → Pages**.
@@ -71,7 +81,9 @@ El comprobante que imprime es **interno, no fiscal**. Para emitir factura electr
 ```
 index.html          Pantallas de la app
 css/styles.css      Estilos (adaptado a celular)
-img/                Logo y favicon
+img/                Logo, favicon e íconos de la app
+manifest.json       Datos para instalarla como app
+sw.js               Hace que funcione sin internet
 js/store.js         Lógica de datos: productos, stock, facturas
 js/app.js           Interfaz y eventos
 tests/              Tests de la lógica de stock y facturación
