@@ -249,6 +249,7 @@
           orden.forEach(function (pid) {
             var p = buscarProducto(d, pid);
             if (!p || p.activo === false) throw new Error('Hay un producto que ya no existe en el catálogo.');
+            if (!(p.precio > 0)) throw new Error('"' + p.nombre + '" no tiene precio cargado. Cargalo en Productos.');
             if (p.stock < cantidades[pid]) {
               faltantes.push(p.nombre + ' (pediste ' + cantidades[pid] + ', hay ' + p.stock + ')');
             }

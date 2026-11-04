@@ -91,6 +91,13 @@ test('detecta productos con stock bajo', () => {
   assert.deepStrictEqual(s.productosBajoStock().map((p) => p.nombre), ['Cerveza']);
 });
 
+test('no deja facturar productos sin precio', () => {
+  const s = globalThis.crearStore(memoria());
+  const p = s.crearProducto({ nombre: 'Humita', precio: 0, stock: 5 });
+  assert.throws(() => s.facturar([{ productoId: p.id, cantidad: 1 }]), /no tiene precio/);
+  assert.strictEqual(s.producto(p.id).stock, 5);
+});
+
 test('no permite códigos repetidos', () => {
   const { s } = storeConProductos();
   assert.throws(() => s.crearProducto({ codigo: 'cer1', nombre: 'Otra', precio: 1 }), /Ya existe/);

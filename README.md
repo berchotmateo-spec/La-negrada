@@ -1,18 +1,34 @@
-# La Negrada · Sistema de gestión
+# La Negrada · Patio de Retumbos — Sistema de gestión
 
-App web de autogestión para el negocio: control de stock, punto de venta y facturación.
+App web para que el dueño del bar maneje solo la caja, el stock y la facturación.
 **Cada vez que se factura, el stock de los productos vendidos se da de baja automáticamente.**
 
 ## Qué hace
 
 | Sección | Para qué sirve |
 |---|---|
-| **Inicio** | Ventas del día y del mes, stock valorizado, productos para reponer y últimas ventas. |
-| **Vender** | Punto de venta: buscás por nombre o código (sirve con lector de códigos de barras: escanear + Enter), armás el ticket, aplicás descuento, elegís medio de pago y facturás. |
+| **Inicio** | Caja de la noche por medio de pago, lo que más salió, ventas del mes, productos para reponer y últimas ventas. |
+| **Vender** | Punto de venta con la carta separada en Comidas, Postres y Bebidas. Tocás los productos, armás el ticket, aplicás descuento, elegís medio de pago y facturás. |
 | **Productos** | Alta, edición y baja de productos con código, categoría, precio, costo y stock mínimo. |
 | **Stock** | Ingreso de mercadería y ajustes por conteo. Historial de todos los movimientos (ventas, ingresos, ajustes, anulaciones). |
 | **Facturas** | Historial con búsqueda y filtro por fechas. Ver, imprimir o anular (al anular, el stock vuelve). |
 | **Ajustes** | Datos del negocio que salen en el comprobante, respaldo y restauración de datos. |
+
+### La carta
+
+La primera vez que se abre, la app carga la carta del bar:
+
+- **Comidas:** Choripán, Guiso de lentejas, Humita, Empanada, Pastelito
+- **Postres:** Arroz con leche
+- **Bebidas:** Vino, Cerveza, Fernet, Gancia, Gaseosa, Agua, Limonada
+
+Los productos arrancan **sin precio y sin stock**. Mientras no tengan precio y stock no se pueden vender.
+Cada venta descuenta de a una unidad o porción (una empanada, un vaso de fernet, una porción de guiso).
+
+### La noche del bar
+
+Los totales "de la noche" toman la jornada de **6 am a 6 am**: una venta a la 1 de la madrugada
+cuenta para la noche que empezó el día anterior.
 
 ### Reglas de stock
 
@@ -25,7 +41,12 @@ App web de autogestión para el negocio: control de stock, punto de venta y fact
 
 No hace falta instalar nada: abrí `index.html` con el navegador (Chrome, Edge o Firefox).
 
-Para probarla rápido: **Ajustes → Cargar ejemplos**.
+Primeros pasos:
+
+1. **Productos → Editar** en cada producto para cargarle el precio.
+2. **Stock → Ingreso de mercadería** al arrancar la noche (por ejemplo: 48 empanadas, 20 chorizos, 30 fernets).
+3. A vender desde **Vender**. Al cerrar, mirar **Inicio → Caja de la noche**.
+4. Si sobró algo o se rompió, **Stock → Ajuste por conteo** con lo que realmente quedó.
 
 ### Publicarla gratis con GitHub Pages
 
@@ -47,6 +68,7 @@ El comprobante que imprime es **interno, no fiscal**. Para emitir factura electr
 ```
 index.html          Pantallas de la app
 css/styles.css      Estilos (adaptado a celular)
+img/                Logo y favicon
 js/store.js         Lógica de datos: productos, stock, facturas
 js/app.js           Interfaz y eventos
 tests/              Tests de la lógica de stock y facturación
@@ -63,4 +85,6 @@ node --test tests/store.test.js
 - Base de datos en la nube (por ejemplo Supabase) para usarla desde varias computadoras y celulares a la vez.
 - Usuarios con contraseña y permisos (dueño / vendedor).
 - Factura electrónica con ARCA.
-- Proveedores y compras, cierre de caja diario, reportes de productos más vendidos.
+- Cuentas abiertas por mesa (anotar consumos y cobrar al final).
+- Descontar insumos por receta (por ejemplo, que un fernet con coca descuente de la botella de fernet y de la gaseosa).
+- Proveedores y compras, reportes por semana y por mes.

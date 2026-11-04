@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>La Negrada · Gestión</title>
+  <link rel="icon" type="image/png" href="img/favicon.png">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <aside class="sidebar">
     <div class="marca">
-      <span class="marca-logo">LN</span>
-      <span class="marca-nombre" id="marca-nombre">La Negrada</span>
+      <img class="marca-logo" src="img/logo.jpg" alt="La Negrada · Patio de Retumbos" width="120" height="120">
     </div>
     <nav class="menu" aria-label="Secciones">
       <a href="#inicio" data-vista="inicio">Inicio</a>
@@ -23,19 +23,33 @@
   </aside>
 
   <main class="contenido">
+    <div class="barra-movil">
+      <img src="img/logo.jpg" alt="" width="44" height="44">
+      <span>La Negrada <em>Patio de Retumbos</em></span>
+    </div>
     <!-- INICIO -->
     <section class="vista" id="vista-inicio">
       <header class="vista-cabecera">
         <h1>Inicio</h1>
         <a class="btn btn-primario" href="#vender">Nueva venta</a>
       </header>
+      <div id="primeros-pasos"></div>
       <div class="tarjetas-resumen">
-        <div class="tarjeta-dato"><span class="dato-titulo">Ventas de hoy</span><strong id="res-ventas-hoy">$ 0</strong><span class="dato-sub" id="res-cant-hoy">0 facturas</span></div>
+        <div class="tarjeta-dato"><span class="dato-titulo">Ventas de la noche</span><strong id="res-ventas-hoy">$ 0</strong><span class="dato-sub" id="res-cant-hoy">0 facturas</span></div>
         <div class="tarjeta-dato"><span class="dato-titulo">Ventas del mes</span><strong id="res-ventas-mes">$ 0</strong><span class="dato-sub" id="res-cant-mes">0 facturas</span></div>
         <div class="tarjeta-dato"><span class="dato-titulo">Productos</span><strong id="res-productos">0</strong><span class="dato-sub" id="res-valor-stock">Stock valorizado $ 0</span></div>
         <div class="tarjeta-dato alerta"><span class="dato-titulo">Stock bajo</span><strong id="res-bajo">0</strong><span class="dato-sub">productos para reponer</span></div>
       </div>
       <div class="grilla-2">
+        <div class="panel">
+          <h2>Caja de la noche</h2>
+          <p class="ayuda">La jornada va de las 6 am a las 6 am del día siguiente.</p>
+          <div id="caja-noche"></div>
+        </div>
+        <div class="panel">
+          <h2>Lo que más salió esta noche</h2>
+          <div id="mas-vendido"></div>
+        </div>
         <div class="panel">
           <h2>Para reponer</h2>
           <div id="lista-bajo-stock"></div>
@@ -52,7 +66,8 @@
       <header class="vista-cabecera"><h1>Vender</h1></header>
       <div class="pos">
         <div class="panel pos-catalogo">
-          <input type="search" id="pos-buscar" class="input" placeholder="Buscar nombre o código" autocomplete="off">
+          <input type="search" id="pos-buscar" class="input" placeholder="Buscar en la carta" autocomplete="off">
+          <div id="pos-categorias" class="chips" role="group" aria-label="Categorías"></div>
           <div id="pos-productos" class="pos-productos"></div>
         </div>
         <div class="panel pos-ticket">
@@ -182,10 +197,10 @@
             <label class="btn">Restaurar respaldo<input type="file" id="input-importar" accept="application/json" hidden></label>
           </div>
           <hr>
-          <h2>Datos de prueba</h2>
-          <p class="ayuda">Carga productos de ejemplo para probar la app.</p>
+          <h2>Carta de La Negrada</h2>
+          <p class="ayuda">Vuelve a cargar los productos de la carta que falten (sin precio ni stock).</p>
           <div class="botonera">
-            <button class="btn" id="btn-demo" type="button">Cargar ejemplos</button>
+            <button class="btn" id="btn-demo" type="button">Cargar la carta</button>
             <button class="btn btn-peligro" id="btn-borrar" type="button">Borrar todo</button>
           </div>
         </div>

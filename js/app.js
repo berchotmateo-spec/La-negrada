@@ -2,8 +2,41 @@
 (function () {
   'use strict';
 
+  var primeraVez = window.localStorage.getItem(window.STORE_KEY) === null;
   var store = window.crearStore(window.localStorage);
   var carrito = []; // [{ productoId, cantidad }]
+  var categoriaPOS = ''; // '' = todas
+
+  // Carta del bar. Arranca sin precio ni stock: se cargan desde Productos y Stock.
+  var CARTA = [
+    { nombre: 'Choripán', categoria: 'Comidas' },
+    { nombre: 'Guiso de lentejas', categoria: 'Comidas' },
+    { nombre: 'Humita', categoria: 'Comidas' },
+    { nombre: 'Empanada', categoria: 'Comidas' },
+    { nombre: 'Pastelito', categoria: 'Comidas' },
+    { nombre: 'Arroz con leche', categoria: 'Postres' },
+    { nombre: 'Vino', categoria: 'Bebidas' },
+    { nombre: 'Cerveza', categoria: 'Bebidas' },
+    { nombre: 'Fernet', categoria: 'Bebidas' },
+    { nombre: 'Gancia', categoria: 'Bebidas' },
+    { nombre: 'Gaseosa', categoria: 'Bebidas' },
+    { nombre: 'Agua', categoria: 'Bebidas' },
+    { nombre: 'Limonada', categoria: 'Bebidas' }
+  ];
+
+  // Agrega los productos de la carta que no estén cargados. Devuelve cuántos agregó.
+  function cargarCarta() {
+    var existentes = store.productos().map(function (p) { return p.nombre.toLowerCase(); });
+    var nuevos = 0;
+    CARTA.forEach(function (item) {
+      if (existentes.indexOf(item.nombre.toLowerCase()) !== -1) return;
+      store.crearProducto({ nombre: item.nombre, categoria: item.categoria, precio: 0, stock: 0, stockMinimo: 0 });
+      nuevos++;
+    });
+    return nuevos;
+  }
+
+  if (primeraVez) cargarCarta();
 
   // ---------- Utilidades ----------
   var $ = function (sel) { return document.querySelector(sel); };
@@ -25,7 +58,9 @@
     var el = document.createElement('div');
     el.className = 'aviso ' + (tipo || 'ok');
     el.textContent = mensaje;
-    $('#avisos').appendChild(el);
+    var contenedor = $('#avisos');
+    while (contenedor.children.length >= 2) contenedor.firstChild.remove();
+    contenedor.appendChild(el);
     setTimeout(function () { el.remove(); }, tipo === 'error' ? 6000 : 3000);
   }
 
@@ -41,6 +76,11 @@
     }
   }
 
+  // La jornada del bar corta a las 6 am: una venta a la 1 am cuenta para la noche anterior.
+  var HORA_CORTE = 6;
+  function jornada(fecha) {
+    return new Date(fecha.getTime() - HORA_CORTE * 3600 * 1000);
+  }
   function mismoDia(a, b) {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   }
@@ -75,11 +115,11 @@
 
   // ---------- Inicio ----------
   function renderInicio() {
-    var hoy = new Date();
+    var hoy = jornada(new Date());
     var emitidas = store.facturas().filter(function (f) { return f.estado === 'emitida'; });
-    var deHoy = emitidas.filter(function (f) { return mismoDia(new Date(f.fecha), hoy); });
+    var deHoy = emitidas.filter(function (f) { return mismoDia(jornada(new Date(f.fecha)), hoy); });
     var delMes = emitidas.filter(function (f) {
-      var d = new Date(f.fecha);
+      var d = jornada(new Date(f.fecha));
       return d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth();
     });
     var suma = function (lista) { return lista.reduce(function (s, f) { return s + f.total; }, 0); };
@@ -94,6 +134,43 @@
     $('#res-productos').textContent = productos.length;
     $('#res-valor-stock').textContent = 'Stock valorizado ' + plata(valorStock);
     $('#res-bajo').textContent = bajos.length;
+
+    // Primeros pasos: productos que todavía no tienen precio
+    var sinPrecio = productos.filter(function (p) { return !(p.precio > 0); });
+    $('#primeros-pasos').innerHTML = sinPrecio.length
+      ? '<div class="banner"><div><strong>Falta cargar el precio de ' + sinPrecio.length +
+        (sinPrecio.length === 1 ? ' producto' : ' productos') + '</strong>' +
+        '<p>' + esc(sinPrecio.slice(0, 5).map(function (p) { return p.nombre; }).join(', ')) +
+        (sinPrecio.length > 5 ? ' y ' + (sinPrecio.length - 5) + ' más' : '') +
+        '. Hasta que tengan precio y stock no se pueden vender.</p></div>' +
+        '<a class="btn btn-primario" href="#productos">Cargar precios</a></div>'
+      : '';
+
+    // Caja de la noche por medio de pago
+    var porPago = {};
+    deHoy.forEach(function (f) { porPago[f.medioPago] = (porPago[f.medioPago] || 0) + f.total; });
+    var medios = Object.keys(porPago).sort(function (a, b) { return porPago[b] - porPago[a]; });
+    $('#caja-noche').innerHTML = medios.length
+      ? '<ul class="lista">' + medios.map(function (m) {
+          return '<li><span>' + esc(m) + '</span><strong>' + plata(porPago[m]) + '</strong></li>';
+        }).join('') + '<li class="fila-total"><span>Total</span><strong>' + plata(suma(deHoy)) + '</strong></li></ul>'
+      : vacio('Todavía no hubo ventas esta noche.');
+
+    // Lo más vendido de la noche
+    var vendidos = {};
+    deHoy.forEach(function (f) {
+      f.items.forEach(function (i) {
+        if (!vendidos[i.nombre]) vendidos[i.nombre] = { cant: 0, monto: 0 };
+        vendidos[i.nombre].cant += i.cantidad;
+        vendidos[i.nombre].monto += i.subtotal;
+      });
+    });
+    var ranking = Object.keys(vendidos).sort(function (a, b) { return vendidos[b].cant - vendidos[a].cant; }).slice(0, 8);
+    $('#mas-vendido').innerHTML = ranking.length
+      ? '<ul class="lista">' + ranking.map(function (n) {
+          return '<li><span><strong>' + vendidos[n].cant + '×</strong> ' + esc(n) + '</span><span class="tenue">' + plata(vendidos[n].monto) + '</span></li>';
+        }).join('') + '</ul>'
+      : vacio('Sin ventas todavía.');
 
     $('#lista-bajo-stock').innerHTML = bajos.length
       ? '<ul class="lista">' + bajos.map(function (p) {
@@ -116,6 +193,7 @@
   function filtrarProductos(texto) {
     var t = texto.trim().toLowerCase();
     return store.productos().filter(function (p) {
+      if (categoriaPOS && p.categoria !== categoriaPOS) return false;
       return !t || p.nombre.toLowerCase().indexOf(t) !== -1 ||
         (p.codigo && p.codigo.toLowerCase().indexOf(t) !== -1) ||
         (p.categoria && p.categoria.toLowerCase().indexOf(t) !== -1);
@@ -130,6 +208,10 @@
   function agregarAlCarrito(id) {
     var p = store.producto(id);
     if (!p) return;
+    if (!(p.precio > 0)) {
+      aviso(p.nombre + ' no tiene precio. Cargalo en Productos.', 'error');
+      return;
+    }
     var item = carrito.find(function (i) { return i.productoId === id; });
     var actual = item ? item.cantidad : 0;
     if (actual + 1 > p.stock) {
@@ -140,16 +222,35 @@
     renderVender();
   }
 
+  function categorias() {
+    var lista = [];
+    store.productos().forEach(function (p) {
+      if (p.categoria && lista.indexOf(p.categoria) === -1) lista.push(p.categoria);
+    });
+    return lista;
+  }
+
   function renderVender() {
+    var cats = categorias();
+    if (categoriaPOS && cats.indexOf(categoriaPOS) === -1) categoriaPOS = '';
+    $('#pos-categorias').innerHTML = cats.length > 1
+      ? [''].concat(cats).map(function (c) {
+          return '<button type="button" class="chip' + (c === categoriaPOS ? ' activo' : '') + '" data-categoria="' + esc(c) + '"' +
+            ' aria-pressed="' + (c === categoriaPOS) + '">' + esc(c || 'Todo') + '</button>';
+        }).join('')
+      : '';
+
     var lista = filtrarProductos($('#pos-buscar').value);
     $('#pos-productos').innerHTML = lista.length
       ? lista.map(function (p) {
           var disponible = p.stock - cantidadEnCarrito(p.id);
-          return '<button type="button" class="pos-item" data-agregar="' + p.id + '"' + (disponible <= 0 ? ' disabled' : '') + '>' +
+          var sinPrecio = !(p.precio > 0);
+          var bloqueado = sinPrecio || disponible <= 0;
+          var estado = sinPrecio ? 'Sin precio' : (disponible <= 0 ? 'Sin stock' : 'Quedan ' + disponible);
+          return '<button type="button" class="pos-item" data-agregar="' + p.id + '"' + (bloqueado ? ' disabled' : '') + '>' +
             '<span class="pos-item-nombre">' + esc(p.nombre) + '</span>' +
-            '<span class="pos-item-precio">' + plata(p.precio) + '</span>' +
-            '<span class="pos-item-stock ' + (disponible <= 0 ? 'sin' : '') + '">' +
-            (disponible <= 0 ? 'Sin stock' : 'Stock: ' + disponible) + '</span></button>';
+            '<span class="pos-item-precio">' + (sinPrecio ? '—' : plata(p.precio)) + '</span>' +
+            '<span class="pos-item-stock ' + (bloqueado ? 'sin' : '') + '">' + estado + '</span></button>';
         }).join('')
       : vacio(store.productos().length ? 'No hay productos que coincidan.' : 'Cargá productos en la sección Productos.');
 
@@ -191,6 +292,7 @@
   $('#vista-vender').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.categoria !== undefined) { categoriaPOS = b.dataset.categoria; renderVender(); return; }
     if (b.dataset.agregar) agregarAlCarrito(b.dataset.agregar);
     if (b.dataset.sumar) agregarAlCarrito(b.dataset.sumar);
     if (b.dataset.restar) {
@@ -228,13 +330,18 @@
     var t = $('#prod-buscar').value.trim().toLowerCase();
     var lista = store.productos().filter(function (p) {
       return !t || [p.nombre, p.codigo, p.categoria].join(' ').toLowerCase().indexOf(t) !== -1;
-    }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre); });
+    });
+    var ordenCat = categorias();
+    lista.sort(function (a, b) {
+      return (ordenCat.indexOf(a.categoria) - ordenCat.indexOf(b.categoria)) || a.nombre.localeCompare(b.nombre);
+    });
 
     $('#tabla-productos').innerHTML = lista.length
       ? lista.map(function (p) {
           var clase = p.stock === 0 ? 'roja' : (p.stock <= p.stockMinimo ? 'amarilla' : 'verde');
+          var precio = p.precio > 0 ? plata(p.precio) : '<span class="etiqueta amarilla">Sin precio</span>';
           return '<tr><td class="tenue">' + esc(p.codigo || '—') + '</td><td>' + esc(p.nombre) + '</td>' +
-            '<td>' + esc(p.categoria || '—') + '</td><td class="num">' + plata(p.precio) + '</td>' +
+            '<td>' + esc(p.categoria || '—') + '</td><td class="num">' + precio + '</td>' +
             '<td class="num"><span class="etiqueta ' + clase + '">' + p.stock + '</span></td>' +
             '<td class="acciones"><button class="btn btn-chico" data-editar="' + p.id + '">Editar</button>' +
             '<button class="btn btn-chico" data-mover="' + p.id + '">Stock</button></td></tr>';
@@ -379,10 +486,10 @@
   function htmlComprobante(f) {
     var c = store.config();
     return '<div class="comprobante">' +
-      '<div class="comp-cabecera"><div><h2>' + esc(c.nombreNegocio) + '</h2>' +
+      '<div class="comp-cabecera"><div class="comp-negocio"><img class="comp-logo" src="img/logo.jpg" alt=""><div><h2>' + esc(c.nombreNegocio) + '</h2>' +
       (c.direccion ? '<p>' + esc(c.direccion) + '</p>' : '') +
       (c.telefono ? '<p>Tel: ' + esc(c.telefono) + '</p>' : '') +
-      (c.cuit ? '<p>CUIT: ' + esc(c.cuit) + '</p>' : '') + '</div>' +
+      (c.cuit ? '<p>CUIT: ' + esc(c.cuit) + '</p>' : '') + '</div></div>' +
       '<div class="comp-numero"><strong>Comprobante</strong><p>N° ' + store.numeroFormateado(f) + '</p><p>' + fechaHora(f.fecha) + '</p></div></div>' +
       (f.estado === 'anulada' ? '<p class="sello-anulada">ANULADA' + (f.motivoAnulacion ? ' · ' + esc(f.motivoAnulacion) : '') + '</p>' : '') +
       '<p><strong>Cliente:</strong> ' + esc(f.cliente.nombre) + (f.cliente.documento ? ' · ' + esc(f.cliente.documento) : '') + '</p>' +
@@ -433,7 +540,6 @@
     ['nombreNegocio', 'cuit', 'direccion', 'telefono', 'puntoVenta'].forEach(function (k) {
       if (document.activeElement !== form.elements[k]) form.elements[k].value = c[k];
     });
-    $('#marca-nombre').textContent = c.nombreNegocio;
     document.title = c.nombreNegocio + ' · Gestión';
   }
 
@@ -462,20 +568,9 @@
   });
 
   $('#btn-demo').addEventListener('click', function () {
-    var ejemplos = [
-      { codigo: '7790001', nombre: 'Cerveza lata 473ml', categoria: 'Bebidas', precio: 1800, costo: 1100, stock: 48, stockMinimo: 12 },
-      { codigo: '7790002', nombre: 'Fernet 750ml', categoria: 'Bebidas', precio: 11500, costo: 8200, stock: 10, stockMinimo: 4 },
-      { codigo: '7790003', nombre: 'Gaseosa cola 2.25L', categoria: 'Bebidas', precio: 3200, costo: 2100, stock: 20, stockMinimo: 6 },
-      { codigo: '7790004', nombre: 'Agua mineral 500ml', categoria: 'Bebidas', precio: 900, costo: 450, stock: 3, stockMinimo: 10 },
-      { codigo: '7790005', nombre: 'Papas fritas 150g', categoria: 'Snacks', precio: 2400, costo: 1500, stock: 15, stockMinimo: 5 },
-      { codigo: '7790006', nombre: 'Maní salado 200g', categoria: 'Snacks', precio: 1500, costo: 850, stock: 0, stockMinimo: 5 },
-      { codigo: '7790007', nombre: 'Hielo 2kg', categoria: 'Varios', precio: 1200, costo: 500, stock: 25, stockMinimo: 8 }
-    ];
-    var creados = 0;
-    ejemplos.forEach(function (p) {
-      try { store.crearProducto(p); creados++; } catch (err) { /* ya existe ese código */ }
-    });
-    aviso(creados ? creados + ' productos de ejemplo cargados.' : 'Los ejemplos ya estaban cargados.');
+    var nuevos = intentar(cargarCarta);
+    if (nuevos === null) return;
+    aviso(nuevos ? nuevos + ' productos de la carta agregados.' : 'La carta ya estaba completa.');
   });
 
   $('#btn-borrar').addEventListener('click', function () {
