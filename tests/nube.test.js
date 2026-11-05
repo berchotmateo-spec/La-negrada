@@ -20,8 +20,8 @@ function memoria(dispositivo) {
  * + tabla accesos. Se puede "cortar internet".
  */
 function supabaseFalso() {
-  const usuarios = { 'lanegrada@gmail.com': 'secreta', 'otro@gmail.com': 'otra' };
-  const accesos = ['lanegrada@gmail.com'];
+  const usuarios = { 'lanegrada@gmail.com': 'secreta', 'otro@gmail.com': 'otra', 'juanjose@lanegrada.app': '234' };
+  const accesos = ['lanegrada@gmail.com', 'juanjose@lanegrada.app'];
   const filas = new Map();
   const tokens = {};
   let reloj = Date.parse('2026-11-05T20:00:00Z');
@@ -115,6 +115,7 @@ test('contraseña mal o mail no autorizado: mensajes claros', async () => {
   const srv = supabaseFalso();
   const a = compu(srv, 1);
   await assert.rejects(a.nube.iniciarSesion('lanegrada@gmail.com', 'mal'), /no son correctos/);
+  await assert.rejects(a.nube.iniciarSesion('', 'x'), /usuario y la contraseña/);
   await assert.rejects(a.nube.iniciarSesion('otro@gmail.com', 'otra'), /no está autorizado/);
   assert.strictEqual(a.storage.getItem('la-negrada:nube-sesion'), null);  // no queda una sesión a medias
   srv.sinInternet = true;
@@ -217,4 +218,22 @@ test('al volver a entrar con el mismo mail en la misma compu, no pregunta de nue
   await bar.nube.sincronizar();
   assert.ok([...srv.filas.values()].some((f) => f.datos.nombre === 'Hielo'));
   bar.nube.detener();
+});
+
+test('se puede entrar con un usuario simple ("Juan José") en vez de un mail', async () => {
+  assert.strictEqual(globalThis.nubeUsuarioAEmail('Juan José'), 'juanjose@lanegrada.app');
+  assert.strictEqual(globalThis.nubeUsuarioAEmail(' LaNegrada@Gmail.com '), 'lanegrada@gmail.com');
+  const srv = supabaseFalso();
+  const juan = compu(srv, 1);
+  juan.store.crearProducto({ nombre: 'Humita', precio: 3000, stock: 20 });
+  const r = await juan.nube.iniciarSesion('Juan José', '234');
+  assert.deepStrictEqual(r, { pregunta: 'subir' });
+  await juan.nube.decidir('subir');
+  assert.strictEqual(juan.nube.estado().usuario, 'juanjose');
+
+  const mateo = compu(srv, 2);                       // desde otra compu, mismo usuario y contraseña
+  await mateo.nube.iniciarSesion('juanjose', '234');
+  await mateo.nube.sincronizar();
+  assert.strictEqual(prod(mateo.store, 'Humita').stock, 20);
+  juan.nube.detener(); mateo.nube.detener();
 });

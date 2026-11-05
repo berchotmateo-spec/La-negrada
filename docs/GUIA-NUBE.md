@@ -23,20 +23,27 @@ Se hace **una sola vez** y lleva unos 10 minutos. Es gratis.
 
 ## 3. Crear el usuario del bar
 
+En la app se entra con un **usuario simple** (por ejemplo `lanegrada` o `juanjose`) y una contraseña,
+los mismos en todas las compus. Supabase pide un formato de mail, así que el usuario se crea agregándole `@lanegrada.app`:
+
 1. Menú de la izquierda: **Authentication → Users → Add user → Create new user**.
-2. Poné el **mail** y la **contraseña** con los que van a entrar en todas las compus.
-   Puede ser un mail del bar, por ejemplo `lanegrada.patio@gmail.com`.
-3. Marcá **Auto Confirm User** y tocá **Create user**.
+2. **Email:** el usuario + `@lanegrada.app`, en minúsculas y sin espacios ni acentos.
+   Por ejemplo, para entrar como `juanjose`: `juanjose@lanegrada.app`.
+3. **Password:** la contraseña que van a usar (mejor que tenga al menos 8 caracteres).
+4. Marcá **Auto Confirm User** y tocá **Create user**. No se manda ningún mail.
 
-## 4. Autorizar ese mail
+> También se puede usar un mail real (por ejemplo `lanegrada@gmail.com`): en ese caso, en la app se entra escribiendo el mail completo.
 
-En **SQL Editor → New query**, pegá esta línea **con el mail del paso 3, en minúsculas**, y tocá **Run**:
+## 4. Autorizar ese usuario
+
+En **SQL Editor → New query**, pegá esta línea **con el email del paso 3**, y tocá **Run**:
 
 ```sql
-insert into public.accesos (email) values ('lanegrada.patio@gmail.com') on conflict do nothing;
+insert into public.accesos (email) values ('juanjose@lanegrada.app') on conflict do nothing;
 ```
 
-Solo los mails de esta lista pueden ver y cambiar los datos. Si más adelante querés agregar otro, repetí los pasos 3 y 4.
+Solo los usuarios de esta lista pueden ver y cambiar los datos. Todos los autorizados ven **los mismos datos del bar**.
+Para agregar otra persona con su propio usuario, repetí los pasos 3 y 4.
 
 ## 5. Cerrar la puerta a desconocidos (recomendado)
 
@@ -59,9 +66,9 @@ También se pueden pegar a mano en cada compu, en **Ajustes → Compartir entre 
 ## 7. Conectar las computadoras
 
 1. **Primero, la compu del bar** (la que tiene los precios cargados):
-   **Ajustes → Compartir entre computadoras** → mail y contraseña → **Conectar esta compu** →
+   **Ajustes → Compartir entre computadoras** → usuario y contraseña → **Conectar esta compu** →
    **Sí, subir los datos de esta compu**.
-2. **Después, las demás:** mail y contraseña → **Conectar esta compu**.
+2. **Después, las demás:** el mismo usuario y contraseña → **Conectar esta compu**.
    Si esa compu tenía datos de prueba, elegí **Usar los datos de la nube (recomendado)**.
 
 Abajo del menú de la izquierda se ve el estado:

@@ -1201,11 +1201,11 @@
         '<button class="btn btn-primario" type="submit">Guardar</button></form>';
     } else if (e.estado === 'sin-sesion') {
       html = titulo +
-        '<p class="ayuda">Entrá con el mail y la contraseña del bar. ' +
+        '<p class="ayuda">Entrá con el usuario y la contraseña del bar (los mismos en todas las compus). ' +
         '<strong>La primera vez, conectá primero la compu del bar</strong> (la que tiene los precios cargados).</p>' +
         (e.detalle ? '<p class="nube-error">' + esc(e.detalle) + '</p>' : '') +
         '<form id="form-login" class="form fila-form">' +
-        '<label>Mail<input class="input" name="email" type="email" autocomplete="username" required></label>' +
+        '<label>Usuario<input class="input" name="email" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="Ej: lanegrada" required></label>' +
         '<label>Contraseña<input class="input" name="contrasena" type="password" autocomplete="current-password" required></label>' +
         '<button class="btn btn-primario" type="submit"' + (conectando ? ' disabled' : '') + '>' + (conectando ? 'Conectando…' : 'Conectar esta compu') + '</button></form>' +
         (nube.conexion() && !nube.conexion().fija ? '<button type="button" class="link" data-nube-cambiar-conexion>Cambiar los datos de conexión</button>' : '');
@@ -1233,7 +1233,7 @@
         '<div class="nube-estado ' + (e.estado === 'error' ? 'rojo' : e.estado === 'sin-internet' ? 'naranja' : 'verde') + '">' +
         esc(textos[e.estado]) + '</div>' +
         '<ul class="lista lista-nube">' +
-        '<li><span>Conectada como</span><strong>' + esc(e.email || '') + '</strong></li>' +
+        '<li><span>Conectada como</span><strong>' + esc(e.usuario || '') + '</strong></li>' +
         '<li><span>Última sincronización</span><strong>' + haceCuanto(e.ultimaSync) + '</strong></li>' +
         '<li><span>Cambios sin subir</span><strong>' + e.pendientes + '</strong></li></ul>' +
         '<div class="botonera"><button type="button" class="btn btn-primario" data-nube-sincronizar>Sincronizar ahora</button>' +

@@ -18,10 +18,27 @@
     lista: 'la-negrada:nube-lista',        // email con el que esta compu ya quedó vinculada
     cursor: 'la-negrada:nube-cursor'       // hasta dónde se bajó (hora de la nube)
   };
+  // Para entrar con un usuario simple (por ejemplo "juanjose") en vez de un mail:
+  // se le agrega este dominio. En Supabase el usuario se crea como juanjose@lanegrada.app
+  var DOMINIO_USUARIOS = '@lanegrada.app';
   var LOTE = 200;           // registros por subida
   var PAGINA = 500;         // registros por bajada
   var SOLAPE_MS = 10000;    // se vuelve a pedir un poco hacia atrás, por las dudas
   var CADA_MS = 15000;      // sincronización automática
+
+  // "Juan José" -> "juanjose@lanegrada.app"; un mail queda igual (en minúsculas)
+  function aEmail(usuario) {
+    var s = String(usuario || '').trim().toLowerCase();
+    if (!s || s.indexOf('@') !== -1) return s;
+    s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9._-]/g, '');
+    return s ? s + DOMINIO_USUARIOS : '';
+  }
+
+  // Para mostrar: "juanjose@lanegrada.app" -> "juanjose"
+  function usuarioDe(email) {
+    email = String(email || '');
+    return email.slice(-DOMINIO_USUARIOS.length) === DOMINIO_USUARIOS ? email.slice(0, -DOMINIO_USUARIOS.length) : email;
+  }
 
   function crearNube(op) {
     var store = op.store;
@@ -204,13 +221,13 @@
      *  { pregunta: 'juntar' } -> la nube y esta compu tienen datos
      */
     function iniciarSesion(email, contrasena) {
-      email = String(email || '').trim().toLowerCase();
-      if (!email || !contrasena) return Promise.reject(new Error('Escribí el mail y la contraseña.'));
+      email = aEmail(email);
+      if (!email || !contrasena) return Promise.reject(new Error('Escribí el usuario y la contraseña.'));
       if (!conexion()) return Promise.reject(new Error('Falta la conexión con la nube.'));
       return http('POST', '/auth/v1/token?grant_type=password', { email: email, password: contrasena })
         .catch(function (e) {
           if (e.sinInternet) throw new Error('No hay internet. Probá de nuevo cuando vuelva la conexión.');
-          if (e.status === 400) throw new Error('El mail o la contraseña no son correctos.');
+          if (e.status === 400) throw new Error('El usuario o la contraseña no son correctos.');
           throw e;
         })
         .then(function (r) {
@@ -220,7 +237,7 @@
         .then(function (accesos) {
           if (!accesos || !accesos.length) {
             escribir(CLAVES.sesion, null);
-            throw new Error('Este mail todavía no está autorizado. Hay que agregarlo en Supabase (tabla accesos).');
+            throw new Error('Este usuario todavía no está autorizado. Hay que agregarlo en Supabase (tabla accesos).');
           }
           // Si esta compu ya estaba vinculada con este mail, sigue como antes
           if (leer(CLAVES.lista) === email) return { listo: true };
@@ -317,6 +334,7 @@
           estado: estado,
           detalle: detalle,
           email: s && s.email,
+          usuario: s && usuarioDe(s.email),
           ultimaSync: ultimaSync,
           pendientes: store.cantidadPendientes()
         };
@@ -326,4 +344,5 @@
   }
 
   global.crearNube = crearNube;
+  global.nubeUsuarioAEmail = aEmail;
 })(typeof window !== 'undefined' ? window : globalThis);
