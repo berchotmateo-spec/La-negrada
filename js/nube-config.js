@@ -6,6 +6,6 @@
  * Si quedan vacíos, se pueden cargar desde la app en Ajustes > Compartir entre computadoras.
  */
 window.NUBE_CONFIG = {
-  url: '',
-  clave: ''
+  url: 'https://eykeqsczdfqeamqkqqbs.supabase.co',
+  clave: 'sb_publishable_t24OGYJbMLcfT5Wo-QFcFQ_M_09T4bo'
 };
