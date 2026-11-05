@@ -388,3 +388,26 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 .paso-rapido { background: var(--verde-fondo); border-radius: 10px; padding: 12px 14px; margin: 12px 0; line-height: 1.5; }
 .pasos { margin: 6px 0 12px; padding-left: 22px; line-height: 1.7; }
 [data-instalar][hidden] { display: none !important; }
+
+/* Nube: compartir entre computadoras */
+.estado-nube {
+  display: block; margin-top: 10px; padding: 7px 10px; border-radius: 8px; font-size: .8rem; font-weight: 600;
+  text-decoration: none; text-align: center; color: #fff; background: rgba(255, 255, 255, .1);
+}
+.estado-nube.verde { background: rgba(47, 125, 79, .35); }
+.estado-nube.naranja { background: #e8891c; }
+.estado-nube.rojo { background: var(--rojo); }
+.barra-movil .estado-nube { margin: 0 0 0 auto; padding: 5px 8px; font-size: .72rem; color: var(--texto); background: #eceae6; }
+.barra-movil .estado-nube.verde { background: var(--verde-fondo); color: var(--verde); }
+.barra-movil .estado-nube.naranja { background: var(--naranja-fondo); color: var(--naranja); }
+.barra-movil .estado-nube.rojo { background: var(--rojo-fondo); color: var(--rojo); }
+.panel-nube { margin-bottom: 18px; }
+.fila-form { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.fila-form label { flex: 1 1 220px; }
+.opciones-nube { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.nube-estado { padding: 10px 14px; border-radius: 10px; font-weight: 600; margin-bottom: 8px; }
+.nube-estado.verde { background: var(--verde-fondo); color: var(--verde); }
+.nube-estado.naranja { background: var(--naranja-fondo); color: var(--naranja); }
+.nube-estado.rojo { background: var(--rojo-fondo); color: var(--rojo); }
+.nube-error { color: var(--rojo); font-weight: 600; }
+.lista-nube { margin-bottom: 12px; }

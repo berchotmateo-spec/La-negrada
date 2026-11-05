@@ -25,7 +25,7 @@ test('facturar descuenta el stock de cada producto', () => {
   assert.strictEqual(s.producto(fernet.id).stock, 1);
   assert.strictEqual(f.total, 4 * 1500 + 9000);
   assert.strictEqual(f.numero, 1);
-  assert.strictEqual(s.config().proximoNumero, 2);
+  assert.strictEqual(s.proximoNumero(), 2);
 });
 
 test('registra un movimiento de venta por cada producto facturado', () => {
@@ -47,7 +47,7 @@ test('si falta stock de un producto no se factura nada ni se toca el stock', () 
   assert.strictEqual(s.producto(cerveza.id).stock, 10);
   assert.strictEqual(s.producto(fernet.id).stock, 2);
   assert.strictEqual(s.facturas().length, 0);
-  assert.strictEqual(s.config().proximoNumero, 1);
+  assert.strictEqual(s.proximoNumero(), 1);
 });
 
 test('suma cantidades del mismo producto repetido en la factura', () => {
@@ -305,7 +305,7 @@ test('volver a cero NUNCA borra las peñas cerradas, sus ventas ni sus reservas'
   assert.strictEqual(s.resumenEvento(real.id).total, 3000);
   assert.deepStrictEqual(s.reservas().map((r) => r.nombre), ['Familia']);
   assert.strictEqual(s.producto(cerveza.id).stock, 8);   // solo vuelve la venta suelta
-  assert.strictEqual(s.config().proximoNumero, 2);       // no repite números de facturas guardadas
+  assert.strictEqual(s.proximoNumero(), 2);       // no repite números de facturas guardadas
 });
 
 test('eliminar una peña borra solo sus ventas y devuelve el stock', () => {

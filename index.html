@@ -26,12 +26,14 @@
       <a href="#config" data-vista="config">Ajustes</a>
     </nav>
     <button type="button" class="btn-instalar" id="btn-instalar" data-instalar>⤓ Instalar app</button>
+    <a href="#config" class="estado-nube" id="estado-nube" title="Compartir entre computadoras"></a>
   </aside>
 
   <main class="contenido">
     <div class="barra-movil">
       <img src="img/logo.jpg" alt="" width="44" height="44">
       <span>La Negrada <em>Patio de Retumbos</em></span>
+      <a href="#config" class="estado-nube" id="estado-nube-movil"></a>
     </div>
     <!-- INICIO -->
     <section class="vista" id="vista-inicio">
@@ -237,6 +239,7 @@
     <!-- CONFIGURACIÓN -->
     <section class="vista" id="vista-config">
       <header class="vista-cabecera"><h1>Ajustes</h1></header>
+      <div class="panel panel-nube" id="panel-nube"></div>
       <div class="grilla-2">
         <div class="panel">
           <h2>Datos del negocio</h2>
@@ -255,7 +258,7 @@
           <div class="botonera"><button class="btn btn-primario" type="button" data-instalar>Instalar app</button></div>
           <hr>
           <h2>Respaldo de datos</h2>
-          <p class="ayuda">Los datos se guardan en este navegador. Descargá un respaldo seguido y guardalo en Drive o en un pendrive.</p>
+          <p class="ayuda">Los datos se guardan en esta compu (y en la nube, si está conectada). Igual conviene descargar un respaldo cada tanto y guardarlo en Drive o en un pendrive.</p>
           <div class="botonera">
             <button class="btn btn-primario" id="btn-exportar" type="button">Descargar respaldo</button>
             <label class="btn">Restaurar respaldo<input type="file" id="input-importar" accept="application/json" hidden></label>
@@ -297,6 +300,8 @@
   <div id="impresion" class="impresion"></div>
 
   <script src="js/store.js"></script>
+  <script src="js/nube-config.js"></script>
+  <script src="js/nube.js"></script>
   <script src="js/app.js"></script>
   <script>
     // App instalable y que funciona sin internet (no aplica si se abre el archivo directo)

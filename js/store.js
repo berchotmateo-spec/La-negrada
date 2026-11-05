@@ -5,13 +5,26 @@
  * Regla clave: facturar() valida el stock de TODOS los ítems antes de tocar nada.
  * Si alcanza, descuenta el stock, registra los movimientos y emite la factura
  * en un único guardado. Si no alcanza, no cambia nada.
+ *
+ * Sincronización entre computadoras (ver nube.js):
+ *  - Cada registro (producto, venta, peña, reserva...) lleva "actualizado": la hora del último cambio.
+ *    Si dos compus cambian lo mismo, gana el cambio más nuevo.
+ *  - Lo que se borra no desaparece: queda una marca { id, borrado: true } para que se borre
+ *    también en las otras compus. La app nunca muestra los registros borrados.
+ *  - El stock se calcula sumando los movimientos (ingresos, ventas, ajustes, anulaciones).
+ *    Así, si la caja vende sin internet y desde otra compu se carga mercadería, al juntar
+ *    los datos el stock da exacto.
+ *  - "pendientes" guarda qué cambió y todavía no se subió a la nube.
  */
 (function (global) {
   'use strict';
 
   var STORAGE_KEY = 'la-negrada:datos';
+  var PENDIENTES_KEY = 'la-negrada:pendientes';
+  var DISPOSITIVO_KEY = 'la-negrada:dispositivo';
   var UNIDADES = ['unidad', 'porción', 'vaso', 'botella'];
-  var VERSION = 1;
+  var COLECCIONES = ['productos', 'movimientos', 'facturas', 'eventos', 'reservas'];
+  var VERSION = 2;
 
   function estadoInicial() {
     return {
@@ -22,7 +35,6 @@
         direccion: '',
         telefono: '',
         puntoVenta: 1,
-        proximoNumero: 1,
         precioEntrada: 0
       },
       productos: [],
@@ -57,9 +69,114 @@
     return JSON.parse(JSON.stringify(obj));
   }
 
+  // Huella de un registro para saber si cambió (sin la hora; en productos, sin el stock,
+  // que se calcula a partir de los movimientos)
+  function huella(coleccion, e) {
+    var x = Object.assign({}, e);
+    delete x.actualizado;
+    if (coleccion === 'productos') delete x.stock;
+    return JSON.stringify(x);
+  }
+
+  function vivos(lista) {
+    return lista.filter(function (e) { return !e.borrado; });
+  }
+
+  // Lo que ve la app: todo menos los registros borrados
+  function armarVista(d) {
+    var v = { version: d.version, config: d.config };
+    COLECCIONES.forEach(function (c) { v[c] = vivos(d[c]); });
+    return v;
+  }
+
+  // Stock de cada producto = suma de sus movimientos
+  function recalcularStock(d) {
+    var suma = {};
+    d.movimientos.forEach(function (m) {
+      if (m.borrado) return;
+      suma[m.productoId] = (suma[m.productoId] || 0) + m.cantidad;
+    });
+    d.productos.forEach(function (p) {
+      if (!p.borrado) p.stock = suma[p.id] || 0;
+    });
+  }
+
   function crearStore(storage) {
     var datos = cargar();
     var oyentes = [];
+    var ultimoReloj = 0;
+    var dispositivo = numeroDeDispositivo();
+    migrar();
+    var vista = armarVista(datos);
+    var pendientes = cargarPendientes();
+    verReloj(datos);
+
+    // El reloj nunca queda detrás de un cambio ya visto (por si otra compu tiene la hora adelantada)
+    function verReloj(d) {
+      if (d.config && d.config.actualizado > ultimoReloj) ultimoReloj = d.config.actualizado;
+      COLECCIONES.forEach(function (c) {
+        d[c].forEach(function (e) { if (e.actualizado > ultimoReloj) ultimoReloj = e.actualizado; });
+      });
+    }
+
+    // Cada compu tiene un número del 0 al 999 que va en las últimas cifras de la marca de hora:
+    // así dos cambios hechos en el mismo milisegundo en compus distintas nunca empatan.
+    function numeroDeDispositivo() {
+      var n = parseInt(storage.getItem(DISPOSITIVO_KEY), 10);
+      if (!(n >= 0 && n < 1000)) {
+        n = Math.floor(Math.random() * 1000);
+        try { storage.setItem(DISPOSITIVO_KEY, String(n)); } catch (e) { /* sin almacenamiento: se usa igual */ }
+      }
+      return n;
+    }
+
+    // Marca de hora del cambio: milisegundos × 1000 + número de compu. Siempre creciente.
+    function reloj() {
+      var ms = Date.now();
+      if (ms * 1000 + dispositivo <= ultimoReloj) ms = Math.floor(ultimoReloj / 1000) + 1;
+      ultimoReloj = ms * 1000 + dispositivo;
+      return ultimoReloj;
+    }
+
+    function cargarPendientes() {
+      try { return JSON.parse(storage.getItem(PENDIENTES_KEY)) || {}; } catch (e) { return {}; }
+    }
+    function guardarPendientes() {
+      storage.setItem(PENDIENTES_KEY, JSON.stringify(pendientes));
+    }
+    function marcar(coleccion, id) { pendientes[coleccion + ':' + id] = true; }
+
+    function guardar(nuevo) {
+      storage.setItem(STORAGE_KEY, JSON.stringify(nuevo));
+      datos = nuevo;
+      vista = armarVista(datos);
+      guardarPendientes();
+      avisar();
+    }
+
+    /*
+     * Versión 1 -> 2: el stock pasa a calcularse con los movimientos. Si en algún producto
+     * no coinciden, se agrega un ajuste para que el stock quede exactamente igual que antes.
+     */
+    function migrar() {
+      if (datos.version >= VERSION) return;
+      var suma = {};
+      datos.movimientos.forEach(function (m) { if (!m.borrado) suma[m.productoId] = (suma[m.productoId] || 0) + m.cantidad; });
+      datos.productos.forEach(function (p) {
+        if (p.borrado) return;
+        var dif = (p.stock || 0) - (suma[p.id] || 0);
+        if (dif !== 0) {
+          datos.movimientos.push({
+            id: nuevoId(), fecha: new Date().toISOString(), productoId: p.id, productoNombre: p.nombre,
+            tipo: 'ajuste', cantidad: dif, stockResultante: p.stock || 0, referencia: '',
+            nota: 'Ajuste automático para empezar a sincronizar'
+          });
+        }
+      });
+      delete datos.config.proximoNumero;
+      datos.version = VERSION;
+      try { storage.setItem(STORAGE_KEY, JSON.stringify(datos)); } catch (e) { /* se reintenta en el próximo guardado */ }
+    }
 
     function cargar() {
       try {
@@ -76,7 +193,7 @@
       var base = estadoInicial();
       if (!d || typeof d !== 'object') return base;
       return {
-        version: VERSION,
+        version: d.version || 1,
         config: Object.assign(base.config, d.config || {}),
         productos: Array.isArray(d.productos) ? d.productos : [],
         movimientos: Array.isArray(d.movimientos) ? d.movimientos : [],
@@ -86,13 +203,42 @@
       };
     }
 
-    // Aplica un cambio sobre una copia y la guarda; si algo falla, el estado no cambia.
+    /*
+     * Aplica un cambio sobre una copia (sin los borrados) y la guarda; si algo falla, el estado no cambia.
+     * Después compara con lo que había: lo nuevo o modificado se marca con la hora y queda pendiente
+     * de subir; lo que desapareció se convierte en una marca de borrado.
+     */
     function transaccion(fn) {
-      var borrador = copiar(datos);
+      var borrador = copiar(vista);
       var resultado = fn(borrador);
-      storage.setItem(STORAGE_KEY, JSON.stringify(borrador));
-      datos = borrador;
-      avisar();
+      var t = reloj();
+      var nuevo = { version: VERSION, config: borrador.config };
+      if (huella('config', datos.config) !== huella('config', borrador.config)) {
+        borrador.config.actualizado = t;
+        marcar('config', 'config');
+      }
+      COLECCIONES.forEach(function (c) {
+        var antes = {};
+        datos[c].forEach(function (e) { antes[e.id] = e; });
+        var presentes = {};
+        var lista = borrador[c].map(function (e) {
+          presentes[e.id] = true;
+          var previo = antes[e.id];
+          if (!previo || previo.borrado || huella(c, previo) !== huella(c, e)) {
+            e.actualizado = t;
+            marcar(c, e.id);
+          }
+          return e;
+        });
+        datos[c].forEach(function (e) {
+          if (presentes[e.id]) return;
+          if (e.borrado) { lista.push(e); return; }
+          lista.push({ id: e.id, borrado: true, actualizado: t });
+          marcar(c, e.id);
+        });
+        nuevo[c] = lista;
+      });
+      guardar(nuevo);
       return resultado;
     }
 
@@ -191,6 +337,10 @@
       return aBorrar.length;
     }
 
+    function proximoNumero(d) {
+      return d.facturas.reduce(function (m, f) { return Math.max(m, f.numero || 0); }, 0) + 1;
+    }
+
     function buscarReserva(d, id) {
       var r = d.reservas.find(function (x) { return x.id === id; });
       if (!r) throw new Error('Reserva no encontrada.');
@@ -218,14 +368,16 @@
 
     var api = {
       // ---------- Lectura ----------
-      obtener: function () { return datos; },
-      config: function () { return datos.config; },
+      obtener: function () { return vista; },
+      config: function () { return vista.config; },
       productos: function () {
-        return datos.productos.filter(function (p) { return p.activo !== false; });
+        return vista.productos.filter(function (p) { return p.activo !== false; });
       },
-      producto: function (id) { return buscarProducto(datos, id); },
-      facturas: function () { return datos.facturas; },
-      movimientos: function () { return datos.movimientos; },
+      producto: function (id) { return buscarProducto(vista, id); },
+      facturas: function () { return vista.facturas; },
+      movimientos: function () { return vista.movimientos; },
+      // La numeración sigue a la factura más alta que existe (si se borran todas, vuelve a 1)
+      proximoNumero: function () { return proximoNumero(vista); },
       productosBajoStock: function () {
         return api.productos().filter(function (p) { return p.stock <= p.stockMinimo; });
       },
@@ -233,7 +385,13 @@
       suscribir: function (fn) { oyentes.push(fn); },
 
       // Recargar si otra pestaña modificó los datos
-      recargar: function () { datos = cargar(); avisar(); },
+      recargar: function () {
+        datos = cargar();
+        migrar();
+        vista = armarVista(datos);
+        pendientes = cargarPendientes();
+        avisar();
+      },
 
       // ---------- Productos ----------
       crearProducto: function (entrada) {
@@ -381,7 +539,7 @@
           }
 
           // 3) Armar la factura
-          var numero = d.config.proximoNumero;
+          var numero = proximoNumero(d);
           var lineas = orden.map(function (pid) {
             var p = buscarProducto(d, pid);
             var cant = cantidades[pid];
@@ -431,7 +589,6 @@
           });
 
           d.facturas.push(factura);
-          d.config.proximoNumero = numero + 1;
           return factura;
         });
       },
@@ -464,7 +621,7 @@
        * Devuelve totales por medio de pago y unidades vendidas por producto.
        */
       resumen: function (desde, hasta) {
-        return resumirFacturas(datos.facturas.filter(function (f) {
+        return resumirFacturas(vista.facturas.filter(function (f) {
           var fecha = new Date(f.fecha);
           return fecha >= desde && fecha < hasta;
         }));
@@ -478,9 +635,9 @@
 
       // ---------- Configuración y respaldo ----------
       // ---------- Peñas (eventos) ----------
-      eventos: function () { return datos.eventos; },
+      eventos: function () { return vista.eventos; },
       eventoAbierto: function () {
-        return datos.eventos.find(function (e) { return e.abierto; }) || null;
+        return vista.eventos.find(function (e) { return e.abierto; }) || null;
       },
 
       // entrada: { nombre, fecha: 'AAAA-MM-DD' }
@@ -541,7 +698,7 @@
 
       // Peñas ordenadas de la más vieja a la más nueva
       eventosOrdenados: function () {
-        return datos.eventos.slice().sort(function (a, b) {
+        return vista.eventos.slice().sort(function (a, b) {
           return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.apertura < b.apertura ? -1 : 1);
         });
       },
@@ -553,7 +710,7 @@
       },
 
       resumenEvento: function (id) {
-        return resumirFacturas(datos.facturas.filter(function (f) { return f.eventoId === id; }));
+        return resumirFacturas(vista.facturas.filter(function (f) { return f.eventoId === id; }));
       },
 
       /*
@@ -590,8 +747,6 @@
           d.eventos = d.eventos.filter(function (e) { return !e.abierto; });
           var reservasAntes = d.reservas.length;
           d.reservas = d.reservas.filter(function (r) { return fechasCerradas[r.fecha]; });
-          var ultimo = d.facturas.reduce(function (m, f) { return Math.max(m, f.numero); }, 0);
-          d.config.proximoNumero = ultimo + 1;
           return { ventas: ventas, penas: penas, reservas: reservasAntes - d.reservas.length, penasGuardadas: d.eventos.length };
         });
       },
@@ -599,13 +754,13 @@
       // Qué borraría Volver a cero, para mostrarlo antes de confirmar
       previaVolverACero: function () {
         var cerradas = {}, fechasCerradas = {};
-        datos.eventos.forEach(function (e) {
+        vista.eventos.forEach(function (e) {
           if (!e.abierto) { cerradas[e.id] = true; fechasCerradas[e.fecha] = true; }
         });
         return {
-          ventas: datos.facturas.filter(function (f) { return !cerradas[f.eventoId]; }).length,
-          penas: datos.eventos.filter(function (e) { return e.abierto; }).length,
-          reservas: datos.reservas.filter(function (r) { return !fechasCerradas[r.fecha]; }).length,
+          ventas: vista.facturas.filter(function (f) { return !cerradas[f.eventoId]; }).length,
+          penas: vista.eventos.filter(function (e) { return e.abierto; }).length,
+          reservas: vista.reservas.filter(function (r) { return !fechasCerradas[r.fecha]; }).length,
           penasGuardadas: Object.keys(cerradas).length
         };
       },
@@ -616,7 +771,7 @@
        * pagada = true  -> ya pagó por transferencia (verde)
        * pagada = false -> paga en efectivo en la puerta (naranja)
        */
-      reservas: function () { return datos.reservas; },
+      reservas: function () { return vista.reservas; },
 
       crearReserva: function (entrada) {
         return transaccion(function (d) {
@@ -659,7 +814,7 @@
 
       resumenReservas: function (fecha) {
         var r = { lista: [], cantidad: 0, personas: 0, total: 0, cobrado: 0, porPago: {}, pendiente: 0 };
-        datos.reservas.forEach(function (x) {
+        vista.reservas.forEach(function (x) {
           if (x.fecha !== fecha) return;
           r.lista.push(x);
           r.cantidad++;
@@ -732,7 +887,94 @@
           var limpio = estadoInicial();
           Object.keys(limpio).forEach(function (k) { d[k] = limpio[k]; });
         });
-      }
+      },
+
+      // ---------- Sincronización (la usa nube.js) ----------
+      // Registros cambiados en esta compu que todavía no se subieron
+      pendientes: function () {
+        var lista = [];
+        Object.keys(pendientes).forEach(function (clave) {
+          var i = clave.indexOf(':');
+          var c = clave.slice(0, i), id = clave.slice(i + 1);
+          var e = c === 'config' ? datos.config : (datos[c] || []).find(function (x) { return x.id === id; });
+          if (!e) { delete pendientes[clave]; return; }
+          lista.push({ coleccion: c, id: id, datos: e, actualizado: e.actualizado || 0 });
+        });
+        return lista;
+      },
+
+      // Se subieron: se sacan de pendientes, salvo que hayan cambiado mientras se subían
+      confirmarEnviados: function (lista) {
+        lista.forEach(function (r) {
+          var e = r.coleccion === 'config' ? datos.config : (datos[r.coleccion] || []).find(function (x) { return x.id === r.id; });
+          if (!e || (e.actualizado || 0) === r.actualizado) delete pendientes[r.coleccion + ':' + r.id];
+        });
+        guardarPendientes();
+      },
+
+      /*
+       * Junta lo que llegó de la nube: por cada registro gana el más nuevo.
+       * registros: [{ coleccion, id, datos, actualizado }]. Devuelve cuántos cambiaron.
+       */
+      aplicarRemotos: function (registros) {
+        var nuevo = copiar(datos);
+        var indices = {};
+        COLECCIONES.forEach(function (c) {
+          indices[c] = {};
+          nuevo[c].forEach(function (e, i) { indices[c][e.id] = i; });
+        });
+        var cambios = 0;
+        registros.forEach(function (r) {
+          if (r.actualizado > ultimoReloj) ultimoReloj = r.actualizado;
+          var remoto = Object.assign({}, r.datos, { actualizado: r.actualizado });
+          if (r.coleccion === 'config') {
+            if (r.actualizado > (nuevo.config.actualizado || 0)) {
+              nuevo.config = Object.assign(estadoInicial().config, remoto);
+              delete pendientes['config:config'];
+              cambios++;
+            }
+            return;
+          }
+          if (COLECCIONES.indexOf(r.coleccion) === -1) return;
+          remoto.id = r.id;
+          var i = indices[r.coleccion][r.id];
+          if (i === undefined) {
+            indices[r.coleccion][r.id] = nuevo[r.coleccion].length;
+            nuevo[r.coleccion].push(remoto);
+            cambios++;
+          } else if (r.actualizado > (nuevo[r.coleccion][i].actualizado || 0)) {
+            nuevo[r.coleccion][i] = remoto;
+            delete pendientes[r.coleccion + ':' + r.id];
+            cambios++;
+          }
+        });
+        if (!cambios) return 0;
+        recalcularStock(nuevo);
+        nuevo.version = VERSION;
+        guardar(nuevo);
+        return cambios;
+      },
+
+      // Para la primera conexión: ¿esta compu tiene datos cargados por alguien?
+      tieneDatosPropios: function () {
+        return vista.facturas.length > 0 || vista.eventos.length > 0 || vista.reservas.length > 0 ||
+          vista.productos.some(function (p) { return p.precio > 0 || p.stock > 0; });
+      },
+
+      // Para subir todo lo de esta compu la primera vez
+      marcarTodoPendiente: function () {
+        marcar('config', 'config');
+        COLECCIONES.forEach(function (c) { datos[c].forEach(function (e) { marcar(c, e.id); }); });
+        guardarPendientes();
+      },
+
+      // Para usar solo lo de la nube: esta compu queda vacía hasta que baje todo
+      reiniciarLocal: function () {
+        pendientes = {};
+        guardar(estadoInicial());
+      },
+
+      cantidadPendientes: function () { return Object.keys(pendientes).length; }
     };
 
     return api;

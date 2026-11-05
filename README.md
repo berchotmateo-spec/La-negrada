@@ -122,12 +122,17 @@ Una vez abierta con internet, **funciona aunque se corte la conexión**.
 2. En *Source* elegí **Deploy from a branch**, la rama que quieras publicar y la carpeta `/ (root)`.
 3. En un par de minutos queda online en `https://<usuario>.github.io/<repositorio>/`.
 
-## Importante sobre los datos
+## Varias computadoras (nube)
 
-Los datos se guardan **en el navegador de la computadora donde se usa** (localStorage):
+La app puede compartir los datos entre varias computadoras usando **Supabase** (gratis).
+Cómo configurarlo, paso a paso: **[docs/GUIA-NUBE.md](docs/GUIA-NUBE.md)**.
 
-- Si se usa en dos computadoras distintas, cada una tiene sus propios datos.
-- Si se borran los datos del navegador, se pierden. Por eso: **Ajustes → Descargar respaldo** seguido, y guardar el archivo en Drive o un pendrive.
+- Cada compu guarda primero localmente: **la caja nunca depende de internet**. Si se corta el wifi, sigue cobrando
+  y sube todo sola cuando vuelve la señal.
+- Las compus conectadas se ponen al día cada 15 segundos.
+- Si dos compus cambian lo mismo, gana el cambio más nuevo. El stock se calcula con los movimientos,
+  así que da exacto aunque se cargue mercadería en una compu mientras la otra vende.
+- Sin conectar a la nube, la app funciona igual que siempre, con los datos en esa compu.
 
 El comprobante que imprime es **interno, no fiscal**. Para emitir factura electrónica válida hay que integrar con ARCA (ex AFIP).
 
@@ -139,7 +144,11 @@ css/styles.css      Estilos (adaptado a celular)
 img/                Logo, favicon e íconos de la app
 manifest.json       Datos para instalarla como app
 sw.js               Hace que funcione sin internet
-js/store.js         Lógica de datos: productos, stock, facturas
+js/store.js         Lógica de datos: productos, stock, facturas (lista para sincronizar)
+js/nube.js          Sincronización con Supabase (subir pendientes, bajar lo nuevo)
+js/nube-config.js   Dirección y clave pública de Supabase del bar
+supabase/           Script de la base de datos (instalar.sql)
+docs/GUIA-NUBE.md   Guía para crear la cuenta de Supabase y conectar las compus
 js/app.js           Interfaz y eventos
 tests/              Tests de la lógica de stock y facturación
 ```
@@ -147,12 +156,11 @@ tests/              Tests de la lógica de stock y facturación
 Para correr los tests (requiere Node.js 18 o más):
 
 ```bash
-node --test tests/store.test.js
+node --test tests/*.test.js
 ```
 
 ## Próximos pasos posibles
 
-- Base de datos en la nube (por ejemplo Supabase) para usarla desde varias computadoras y celulares a la vez.
 - Usuarios con contraseña y permisos (dueño / vendedor).
 - Factura electrónica con ARCA.
 - Cuentas abiertas por mesa (anotar consumos y cobrar al final).

@@ -1046,7 +1046,8 @@
     if (p.penas) lista.push('• la peña que está abierta');
     if (p.reservas) lista.push('• ' + p.reservas + (p.reservas === 1 ? ' reserva' : ' reservas') + ' sin peña cerrada');
     if (!confirm('¿Volver a cero?\n\nSe borra:\n' + lista.join('\n') +
-      '\n\nQuedan igual los productos, los precios y el stock (lo vendido vuelve al stock).' + guardadas)) return;
+      '\n\nQuedan igual los productos, los precios y el stock (lo vendido vuelve al stock).' + guardadas +
+      (nube.estado().email ? '\n\nOjo: se borra también en las otras compus conectadas.' : ''))) return;
     if (!confirm('Última confirmación: ¿borrar las ventas de prueba?')) return;
     carrito = [];
     var r = intentar(function () { return store.volverACero(); });
@@ -1118,7 +1119,8 @@
   $('#btn-borrar').addEventListener('click', function () {
     var penas = store.eventos().length;
     if (!confirm('ATENCIÓN: se borra TODO.\n\nProductos, precios, stock, ventas, reservas' +
-      (penas ? ' y las ' + penas + ' peñas guardadas' : '') + '.\n\nSi solo querés borrar ventas de prueba, usá "Volver a cero".\n\n¿Seguir?')) return;
+      (penas ? ' y las ' + penas + ' peñas guardadas' : '') + '.' +
+      (nube.estado().email ? '\n\nOjo: está conectada a la nube, así que se borra en TODAS las compus.' : '') + '\n\nSi solo querés borrar ventas de prueba, usá "Volver a cero".\n\n¿Seguir?')) return;
     var palabra = prompt('Para confirmar, escribí BORRAR (en mayúsculas):', '');
     if (palabra === null) return;
     if (palabra.trim() !== 'BORRAR') { aviso('No se borró nada.', 'error'); return; }
@@ -1139,6 +1141,154 @@
   }
 
   store.suscribir(renderTodo);
+
+  // ---------- Nube: compartir entre computadoras ----------
+  var nube = window.crearNube({
+    store: store,
+    storage: window.localStorage,
+    fetch: window.fetch.bind(window),
+    config: window.NUBE_CONFIG || {}
+  });
+  var preguntaNube = 'juntar';   // qué preguntar la primera vez: 'subir' (nube vacía) o 'juntar'
+  var conectando = false;
+
+  function haceCuanto(ms) {
+    if (!ms) return 'todavía no';
+    var seg = Math.round((Date.now() - ms) / 1000);
+    if (seg < 10) return 'recién';
+    if (seg < 60) return 'hace ' + seg + ' segundos';
+    var min = Math.round(seg / 60);
+    return 'hace ' + min + (min === 1 ? ' minuto' : ' minutos');
+  }
+
+  function renderNube() {
+    var e = nube.estado();
+    var chip = {
+      'sin-configurar': ['gris', '☁ Sin conectar'],
+      'sin-sesion': ['gris', '☁ Sin conectar'],
+      'primera-vez': ['naranja', '☁ Falta un paso'],
+      'sincronizando': ['verde', '☁ Sincronizando…'],
+      'al-dia': ['verde', e.pendientes ? '☁ Subiendo…' : '☁ Al día'],
+      'sin-internet': ['naranja', '⚠ Sin internet' + (e.pendientes ? ' · ' + e.pendientes + ' sin subir' : '')],
+      'error': ['rojo', '⚠ Problema con la nube']
+    }[e.estado];
+    ['#estado-nube', '#estado-nube-movil'].forEach(function (sel) {
+      var el = $(sel);
+      el.className = 'estado-nube ' + chip[0];
+      el.textContent = chip[1];
+      el.title = e.estado === 'sin-internet'
+        ? 'Todo se guarda en esta compu y se sube solo cuando vuelve internet.'
+        : 'Compartir entre computadoras';
+    });
+
+    var panel = $('#panel-nube');
+    if (panel.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+    var titulo = '<h2>Compartir entre computadoras</h2>';
+    var html;
+    if (e.estado === 'sin-configurar') {
+      html = titulo +
+        '<p class="ayuda">Para que varias compus vean los mismos datos, la app se conecta a una base de datos en internet (Supabase). ' +
+        'Pegá acá los dos datos de conexión que te pasó Mateo.</p>' +
+        '<form id="form-conexion" class="form fila-form">' +
+        '<label>Dirección (Project URL)<input class="input" name="url" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>' +
+        '<label>Clave pública (anon / publishable)<input class="input" name="clave" autocomplete="off"></label>' +
+        '<button class="btn btn-primario" type="submit">Guardar</button></form>';
+    } else if (e.estado === 'sin-sesion') {
+      html = titulo +
+        '<p class="ayuda">Entrá con el mail y la contraseña del bar. ' +
+        '<strong>La primera vez, conectá primero la compu del bar</strong> (la que tiene los precios cargados).</p>' +
+        (e.detalle ? '<p class="nube-error">' + esc(e.detalle) + '</p>' : '') +
+        '<form id="form-login" class="form fila-form">' +
+        '<label>Mail<input class="input" name="email" type="email" autocomplete="username" required></label>' +
+        '<label>Contraseña<input class="input" name="contrasena" type="password" autocomplete="current-password" required></label>' +
+        '<button class="btn btn-primario" type="submit"' + (conectando ? ' disabled' : '') + '>' + (conectando ? 'Conectando…' : 'Conectar esta compu') + '</button></form>' +
+        (nube.conexion() && !nube.conexion().fija ? '<button type="button" class="link" data-nube-cambiar-conexion>Cambiar los datos de conexión</button>' : '');
+    } else if (e.estado === 'primera-vez') {
+      html = titulo + (preguntaNube === 'subir'
+        ? '<p><strong>La nube está vacía.</strong> ¿Esta es la compu del bar, con los precios y las ventas cargadas?</p>' +
+          '<div class="opciones-nube">' +
+          '<button type="button" class="btn btn-primario" data-nube-decidir="subir">Sí, subir los datos de esta compu</button>' +
+          '<button type="button" class="btn" data-nube-decidir="nube">No, empezar sin datos</button></div>'
+        : '<p><strong>La nube ya tiene datos y esta compu también.</strong> ¿Con cuáles se queda esta compu?</p>' +
+          '<div class="opciones-nube">' +
+          '<button type="button" class="btn btn-primario" data-nube-decidir="nube">Usar los datos de la nube (recomendado)</button>' +
+          '<button type="button" class="btn" data-nube-decidir="juntar">Juntar los de esta compu con los de la nube</button></div>' +
+          '<p class="ayuda">"Usar los de la nube" descarta lo que haya en esta compu (por ejemplo, pruebas). ' +
+          '"Juntar" suma todo: usalo solo si en esta compu hay ventas reales que no están en la nube.</p>') +
+        '<button type="button" class="link" data-nube-salir>Cancelar</button>';
+    } else {
+      var textos = {
+        'sincronizando': e.detalle || 'Sincronizando…',
+        'al-dia': 'Todo al día.',
+        'sin-internet': 'Sin internet. Se sigue cobrando normal: todo se guarda en esta compu y se sube solo cuando vuelva la conexión.',
+        'error': e.detalle || 'Hubo un problema con la nube.'
+      };
+      html = titulo +
+        '<div class="nube-estado ' + (e.estado === 'error' ? 'rojo' : e.estado === 'sin-internet' ? 'naranja' : 'verde') + '">' +
+        esc(textos[e.estado]) + '</div>' +
+        '<ul class="lista lista-nube">' +
+        '<li><span>Conectada como</span><strong>' + esc(e.email || '') + '</strong></li>' +
+        '<li><span>Última sincronización</span><strong>' + haceCuanto(e.ultimaSync) + '</strong></li>' +
+        '<li><span>Cambios sin subir</span><strong>' + e.pendientes + '</strong></li></ul>' +
+        '<div class="botonera"><button type="button" class="btn btn-primario" data-nube-sincronizar>Sincronizar ahora</button>' +
+        '<button type="button" class="btn" data-nube-salir>Desconectar esta compu</button></div>';
+    }
+    panel.innerHTML = html;
+  }
+
+  document.addEventListener('submit', function (ev) {
+    var f = ev.target;
+    if (f.id === 'form-conexion') {
+      ev.preventDefault();
+      if (intentar(function () { nube.guardarConexion(f.elements.url.value, f.elements.clave.value); return true; }, 'Conexión guardada. Ahora entrá con el mail del bar.')) renderNube();
+    } else if (f.id === 'form-login') {
+      ev.preventDefault();
+      conectando = true;
+      var email = f.elements.email.value, contrasena = f.elements.contrasena.value;
+      document.activeElement.blur();
+      renderNube();
+      nube.iniciarSesion(email, contrasena).then(function (r) {
+        conectando = false;
+        if (r.pregunta) preguntaNube = r.pregunta;
+        else aviso('Conectada. Esta compu ya comparte los datos.');
+        renderNube();
+      }, function (err) {
+        conectando = false;
+        renderNube();
+        aviso(err.message, 'error');
+      });
+    }
+  });
+
+  document.addEventListener('click', function (ev) {
+    var b;
+    if ((b = ev.target.closest('[data-nube-decidir]'))) {
+      var op = b.dataset.nubeDecidir;
+      if (op === 'nube' && store.tieneDatosPropios() &&
+        !confirm('Esta compu va a usar los datos de la nube.\n\nLo que hay cargado SOLO en esta compu se descarta. ¿Seguir?')) return;
+      b.disabled = true;
+      nube.decidir(op).then(function () {
+        aviso(op === 'subir' ? 'Listo: los datos de esta compu ya están en la nube.' : 'Listo: esta compu ya comparte los datos.');
+      }, function (err) { aviso(err.message, 'error'); renderNube(); });
+    } else if (ev.target.closest('[data-nube-sincronizar]')) {
+      nube.sincronizar();
+    } else if (ev.target.closest('[data-nube-salir]')) {
+      if (nube.estado().estado !== 'primera-vez' &&
+        !confirm('¿Desconectar esta compu?\n\nDeja de compartir datos con las otras. Lo que ya está acá queda guardado.')) return;
+      nube.cerrarSesion().then(function () { aviso('Esta compu quedó desconectada.'); });
+    } else if (ev.target.closest('[data-nube-cambiar-conexion]')) {
+      window.localStorage.removeItem('la-negrada:nube-conexion');
+      nube.iniciar();
+      renderNube();
+    }
+  });
+
+  nube.suscribir(renderNube);
+  store.suscribir(function () { nube.avisarCambio(); });
+  window.addEventListener('online', function () { nube.sincronizar(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') nube.sincronizar();
+  });
   // Si la app está abierta en otra pestaña, mantener los datos sincronizados.
   window.addEventListener('storage', function (e) {
     if (e.key === window.STORE_KEY) store.recargar();
@@ -1212,4 +1362,6 @@
 
   renderTodo();
   mostrarVista();
+  renderNube();
+  nube.iniciar();
 })();
