@@ -11,7 +11,8 @@ Se hace **una sola vez** y lleva unos 10 minutos. Es gratis.
 2. Tocá **New project** y completá:
    - **Name:** `la-negrada`
    - **Database Password:** inventá una contraseña larga y **guardala** (no es la de la app, es la de la base de datos).
-   - **Region:** `South America (São Paulo)`, que es la más cercana.
+   - **Region:** `South America (São Paulo)` si aparece; si solo muestra regiones generales, elegí **Americas**.
+     Cualquiera de las dos anda bien: la caja guarda primero en la compu, así que la distancia al servidor no se nota.
    - Plan: **Free**.
 3. Tocá **Create new project** y esperá 1 o 2 minutos a que termine.
 
