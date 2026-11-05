@@ -103,6 +103,12 @@
     return new Date(fecha.getTime() - HORA_CORTE * 3600 * 1000);
   }
 
+  // Cliente de una venta (si el dato falta, por ejemplo en un respaldo viejo, es consumidor final)
+  function clienteDe(f) {
+    var c = f.cliente || {};
+    return { nombre: c.nombre || 'Consumidor final', documento: c.documento || '' };
+  }
+
   function vacio(texto) { return '<p class="vacio">' + esc(texto) + '</p>'; }
 
   // ---------- Modal ----------
@@ -624,13 +630,13 @@
       var fecha = new Date(f.fecha);
       if (desde && fecha < desde) return false;
       if (hasta && fecha > hasta) return false;
-      return !t || store.numeroFormateado(f).indexOf(t) !== -1 || f.cliente.nombre.toLowerCase().indexOf(t) !== -1;
+      return !t || store.numeroFormateado(f).indexOf(t) !== -1 || clienteDe(f).nombre.toLowerCase().indexOf(t) !== -1;
     }).reverse();
 
     $('#tabla-facturas').innerHTML = lista.length
       ? lista.map(function (f) {
           return '<tr><td>' + store.numeroFormateado(f) + '</td><td class="tenue">' + fechaHora(f.fecha) + '</td>' +
-            '<td>' + esc(f.cliente.nombre) + '</td><td>' + esc(f.medioPago) + '</td>' +
+            '<td>' + esc(clienteDe(f).nombre) + '</td><td>' + esc(f.medioPago) + '</td>' +
             '<td class="num ' + (f.estado === 'anulada' ? 'tachado' : '') + '">' + plata(f.total) + '</td>' +
             '<td><span class="etiqueta ' + (f.estado === 'anulada' ? 'roja' : 'verde') + '">' + (f.estado === 'anulada' ? 'Anulada' : 'Emitida') + '</span></td>' +
             '<td class="acciones"><button class="btn btn-chico" data-ver-factura="' + f.id + '">Ver</button></td></tr>';
@@ -655,7 +661,7 @@
       (c.cuit ? '<p>CUIT: ' + esc(c.cuit) + '</p>' : '') + '</div></div>' +
       '<div class="comp-numero"><strong>Comprobante</strong><p>N° ' + store.numeroFormateado(f) + '</p><p>' + fechaHora(f.fecha) + '</p></div></div>' +
       (f.estado === 'anulada' ? '<p class="sello-anulada">ANULADA' + (f.motivoAnulacion ? ' · ' + esc(f.motivoAnulacion) : '') + '</p>' : '') +
-      '<p><strong>Cliente:</strong> ' + esc(f.cliente.nombre) + (f.cliente.documento ? ' · ' + esc(f.cliente.documento) : '') + '</p>' +
+      '<p><strong>Cliente:</strong> ' + esc(clienteDe(f).nombre) + (clienteDe(f).documento ? ' · ' + esc(clienteDe(f).documento) : '') + '</p>' +
       '<table class="tabla comp-tabla"><thead><tr><th>Cant.</th><th>Producto</th><th class="num">P. unit.</th><th class="num">Subtotal</th></tr></thead><tbody>' +
       f.items.map(function (i) {
         return '<tr><td>' + cantidadCon(i.cantidad, i.unidad) + '</td><td>' + esc(i.nombre) + '</td><td class="num">' + plata(i.precioUnitario) + '</td><td class="num">' + plata(i.subtotal) + '</td></tr>';
