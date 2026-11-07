@@ -367,24 +367,56 @@
 
   $('#pos-vaciar').addEventListener('click', function () { carrito = []; renderVender(); });
 
+  // Al tocar "Cobrar y facturar" se abre la confirmación, con el nombre del cliente listo para escribir
   $('#pos-facturar').addEventListener('click', function () {
-    var factura = intentar(function () {
-      return store.facturar(carrito, {
-        cliente: { nombre: $('#pos-cliente').value, documento: $('#pos-documento').value },
-        medioPago: medioPago,
-        descuento: $('#pos-descuento').value
+    if (!carrito.length) return;
+    var subtotal = carrito.reduce(function (s, i) { return s + store.producto(i.productoId).precio * i.cantidad; }, 0);
+    var desc = Math.min(100, Math.max(0, parseFloat($('#pos-descuento').value) || 0));
+    var total = subtotal - subtotal * desc / 100;
+    var unidades = carrito.reduce(function (s, i) { return s + i.cantidad; }, 0);
+    abrirModal(
+      '<form id="form-cobro" class="form">' +
+      '<h2>Cobrar</h2>' +
+      '<div class="cobro-total"><span>' + unidades + (unidades === 1 ? ' producto' : ' productos') +
+      (desc ? ' · ' + desc + '% de descuento' : '') + '</span><strong>' + plata(total) + '</strong></div>' +
+      '<label>Nombre del cliente<input class="input input-grande" name="nombre" autocomplete="off" ' +
+      'placeholder="Si lo dejás vacío: Consumidor final"></label>' +
+      '<label>DNI / CUIT (opcional)<input class="input" name="documento" autocomplete="off" inputmode="numeric"></label>' +
+      '<p class="etiqueta-campo">¿Cómo paga?</p>' +
+      '<div class="pago">' +
+      '<button type="button" class="pago-btn' + (medioPago === 'Efectivo' ? ' activo' : '') + '" data-cobro-pago="Efectivo">Efectivo</button>' +
+      '<button type="button" class="pago-btn' + (medioPago === 'Transferencia' ? ' activo' : '') + '" data-cobro-pago="Transferencia">Transferencia</button>' +
+      '</div>' +
+      '<div class="acciones-modal"><span class="espacio"></span>' +
+      '<button type="button" class="btn" data-cerrar>Volver</button>' +
+      '<button type="submit" class="btn btn-primario btn-cobrar-final">Cobrar ' + plata(total) + '</button></div></form>'
+    );
+    var form = $('#form-cobro');
+    form.elements.nombre.focus();
+    form.querySelectorAll('[data-cobro-pago]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        medioPago = b.dataset.cobroPago;
+        form.querySelectorAll('[data-cobro-pago]').forEach(function (o) { o.classList.toggle('activo', o === b); });
+        renderVender();
       });
     });
-    if (!factura) return;
-    carrito = [];
-    $('#pos-cliente').value = '';
-    $('#pos-documento').value = '';
-    $('#pos-descuento').value = '0';
-    $('#pos-datos-cliente').open = false;
-    medioPago = 'Efectivo';
-    renderVender();
-    aviso('Venta ' + store.numeroFormateado(factura) + ' cobrada en ' + factura.medioPago.toLowerCase() + '. Stock actualizado.');
-    verFactura(factura.id);
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var factura = intentar(function () {
+        return store.facturar(carrito, {
+          cliente: { nombre: form.elements.nombre.value, documento: form.elements.documento.value },
+          medioPago: medioPago,
+          descuento: $('#pos-descuento').value
+        });
+      });
+      if (!factura) return;
+      carrito = [];
+      $('#pos-descuento').value = '0';
+      medioPago = 'Efectivo';
+      renderVender();
+      aviso('Venta ' + store.numeroFormateado(factura) + ' a ' + factura.cliente.nombre + ', cobrada en ' + factura.medioPago.toLowerCase() + '.');
+      verFactura(factura.id);
+    });
   });
 
   // ---------- Productos ----------

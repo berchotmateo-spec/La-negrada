@@ -411,3 +411,13 @@ hr { border: 0; border-top: 1px solid var(--borde); margin: 20px 0; }
 .nube-estado.rojo { background: var(--rojo-fondo); color: var(--rojo); }
 .nube-error { color: var(--rojo); font-weight: 600; }
 .lista-nube { margin-bottom: 12px; }
+
+/* Confirmación de cobro */
+.cobro-total {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  background: #f5f2ec; border-radius: 10px; padding: 14px 16px;
+}
+.cobro-total span { color: var(--tenue); }
+.cobro-total strong { font-size: 1.7rem; font-variant-numeric: tabular-nums; }
+.input-grande { font-size: 1.1rem; padding: 12px 14px; }
+.btn-cobrar-final { padding: 12px 20px; font-size: 1rem; }
